@@ -228,7 +228,7 @@ public class MainActivity extends ActionBarActivity {
         seekBottomHeat.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             int currentPosition = 0;
 
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser){
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 currentPosition = progress;
             }
 
@@ -308,7 +308,7 @@ public class MainActivity extends ActionBarActivity {
         boolean inChair = sharedPref.getBoolean(getString(R.string.in_chair_key), false);
         int temp = sharedPref.getInt(getString(R.string.temp_key), 0);
         int humidity = sharedPref.getInt(getString(R.string.humidity_key), 0);
-        JSONObject jsonobj = createJsonObject(backFanPos, bottomFanPos, backHeatPos, bottomHeatPos, inChair, temp, humidity, fromFS);
+        JSONObject jsonobj = createJsonObject(backFanPos, bottomFanPos, backHeatPos, bottomHeatPos, inChair, temp, humidity, 0, fromFS);
         HttpAsyncTask task = new HttpAsyncTask(jsonobj);
         task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, uri);
     }
@@ -355,6 +355,18 @@ public class MainActivity extends ActionBarActivity {
             return;
         }
 
+        int temp = ((unsignedByteToInt(status[5])) << 8) + unsignedByteToInt(status[6]);
+        int humidity = ((unsignedByteToInt(status[7])) << 8) + unsignedByteToInt(status[8]);
+        if (status.length == 17) {
+            // This contains historical data. So just post to the server, and don't update preferences.
+            int timestamp = (unsignedByteToInt(status[9]) << 24) + (unsignedByteToInt(status[10]) << 16) + (unsignedByteToInt(status[11]) << 8) + (unsignedByteToInt(status[12]));
+            int ack_id = (unsignedByteToInt(status[13]) << 24) + (unsignedByteToInt(status[14]) << 16) + (unsignedByteToInt(status[15]) << 8) + (unsignedByteToInt(status[16]));
+            System.out.println("ack_id is " + ack_id);
+            JSONObject jsonobj = createJsonObject(status[2], status[3], status[0], status[1], status[4] != 0, temp, humidity, timestamp, true);
+            HttpAsyncTask task = new HttpAsyncTask(jsonobj);
+            task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, uri);
+        }
+
         SharedPreferences sharedPref = MainActivity.this.getSharedPreferences(
                 getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
 
@@ -364,8 +376,6 @@ public class MainActivity extends ActionBarActivity {
         e.putInt(BACK_FAN, status[2]);
         e.putInt(BOTTOM_FAN, status[3]);
         e.putBoolean(getString(R.string.in_chair_key), (status[4] != 0));
-        int temp = ((unsignedByteToInt(status[5])) << 8) + unsignedByteToInt(status[6]);
-        int humidity = ((unsignedByteToInt(status[7])) << 8) + unsignedByteToInt(status[8]);
         e.putInt(getString(R.string.temp_key), temp);
         e.putInt(getString(R.string.humidity_key), humidity);
         e.apply();
@@ -396,13 +406,15 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private void sendUpdateBle() {
-        boolean result = false;
-        if (bluetoothManager != null) {
-            if (bluetoothManager.writeData(getByteStatus())) {
-                result = true;
-            }
-        }
+        boolean result = writeBleByteArray(getByteStatus());
         if (!result) Toast.makeText(getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
+    }
+
+    private boolean writeBleByteArray(byte[] data) {
+        if (bluetoothManager != null && bluetoothManager.writeData(data)) {
+            return true;
+        }
+        return false;
     }
 
     void disconnectBluetoothManager() {
@@ -411,7 +423,7 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private JSONObject createJsonObject(int backFan, int bottomFan, int backHeat, int bottomHeat, boolean inChair,
-                                        int temp, int humidity, boolean fromFS) {
+                                        int temp, int humidity, int timestamp, boolean fromFS) {
         JSONObject jsonobj = new JSONObject();
         JSONObject header = new JSONObject();
         try {
@@ -431,6 +443,9 @@ public class MainActivity extends ActionBarActivity {
             jsonobj.put("temperature", temp);
             jsonobj.put("humidity", humidity);
             jsonobj.put("fromFS", fromFS);
+            if (timestamp != 0) {
+                jsonobj.put("timestamp", timestamp);
+            }
             SharedPreferences sharedPreferences = getSharedPreferences(getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
             String wfmac = sharedPreferences.getString(WF_KEY, "");
             jsonobj.put("macaddr", wfmac);
@@ -442,9 +457,15 @@ public class MainActivity extends ActionBarActivity {
 
     private class HttpAsyncTask extends AsyncTask<String, Void, Boolean> {
         private JSONObject jsonobj;
+        int bluetooth_ack;
         public HttpAsyncTask(JSONObject jsonobj) {
             super();
             this.jsonobj = jsonobj;
+            this.bluetooth_ack = -1;
+        }
+        public HttpAsyncTask(JSONObject jsonobj, int bluetooth_ack) {
+            this(jsonobj);
+            this.bluetooth_ack = bluetooth_ack;
         }
         @Override
         protected Boolean doInBackground(String...urls) {
@@ -460,19 +481,40 @@ public class MainActivity extends ActionBarActivity {
                 InputStream inputStream = httpResponse.getEntity().getContent();
                 final String response = inputStreamToString(inputStream);
                 Log.d("httpPost", response);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-//                        Toast.makeText(getBaseContext(), "Post Result: " + response, Toast.LENGTH_SHORT).show();
-                        Date now = new Date();
-                        long time = now.getTime();
-                        int secTime = (int) (System.currentTimeMillis()/1000);
-                        MainActivity.this.updatePref(getString(R.string.last_server_push_key), time);
-                        MainActivity.this.updatePref(LAST_TIME, secTime);
-                        MainActivity.this.updateLastUpdate();
-                        MainActivity.this.updateJsonText(jsonobj);
-                    }
-                });
+                if (this.bluetooth_ack == -1) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            // Toast.makeText(getBaseContext(), "Post Result: " + response, Toast.LENGTH_SHORT).show();
+                            Date now = new Date();
+                            long time = now.getTime();
+                            int secTime = (int) (System.currentTimeMillis() / 1000);
+                            MainActivity.this.updatePref(getString(R.string.last_server_push_key), time);
+                            MainActivity.this.updatePref(LAST_TIME, secTime);
+                            MainActivity.this.updateLastUpdate();
+                            MainActivity.this.updateJsonText(jsonobj);
+                        }
+                    });
+                } else {
+                    // Send bluetooth ack to chair
+                    byte[] ack_array = new byte[5];
+                    ack_array[0] = (byte) (this.bluetooth_ack >> 24);
+                    ack_array[1] = (byte) (this.bluetooth_ack >> 16);
+                    ack_array[2] = (byte) (this.bluetooth_ack >> 8);
+                    ack_array[3] = (byte) this.bluetooth_ack;
+                    ack_array[4] = 2; // to indicate that this is an acknowledgement
+                    boolean result = writeBleByteArray(ack_array);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (result) {
+                                Toast.makeText(getBaseContext(), "Successfully sent acknowledgement " + bluetooth_ack, Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(getBaseContext(), "Could not send acknowledgement " + bluetooth_ack, Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
+                }
 
                 return true;
             } catch (Exception e) {
@@ -480,7 +522,7 @@ public class MainActivity extends ActionBarActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                    Toast.makeText(getBaseContext(), "Please Check Connection", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getBaseContext(), "Check Internet Connection", Toast.LENGTH_SHORT).show();
                     }
                 });
                 return false;
