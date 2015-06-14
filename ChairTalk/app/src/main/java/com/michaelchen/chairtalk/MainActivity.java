@@ -52,7 +52,7 @@ public class MainActivity extends ActionBarActivity {
     private SeekBar seekBackFan;
     private SeekBar seekBottomHeat;
     private SeekBar seekBackHeat;
-    private static final String uri = "http://169.229.137.160:38001";
+    private static final String uri = "http://169.229.137.160:38001"; //"http://54.215.11.207:38001";
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
     public static final int refreshPeriod = 10000;
     public static final int smapDelay = 20000;
@@ -210,7 +210,7 @@ public class MainActivity extends ActionBarActivity {
         seekBackHeat.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             int currentPosition = 0;
 
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser){
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 currentPosition = progress;
             }
 
@@ -351,26 +351,41 @@ public class MainActivity extends ActionBarActivity {
     }
 
     void setBleStatus(byte[] status) {
-        if (status.length < 9 || !validUpdateTime()) {
+        if (status.length < 9) {
             return;
         }
 
         int temp = ((unsignedByteToInt(status[5])) << 8) + unsignedByteToInt(status[6]);
         int humidity = ((unsignedByteToInt(status[7])) << 8) + unsignedByteToInt(status[8]);
-        if (status.length == 17) {
+        String nodeid = null;
+        if (status.length >= 11) {
+            nodeid = Integer.toHexString((unsignedByteToInt(status[9]) << 8) + unsignedByteToInt(status[10]));
+        }
+        SharedPreferences sharedPref;
+        SharedPreferences.Editor e;
+        if (status.length == 19) {
+            sharedPref = MainActivity.this.getSharedPreferences(
+                    getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+            e = sharedPref.edit();
+            e.putString(WF_KEY, nodeid);
+            e.apply();
+            e.commit();
             // This contains historical data. So just post to the server, and don't update preferences.
-            int timestamp = (unsignedByteToInt(status[9]) << 24) + (unsignedByteToInt(status[10]) << 16) + (unsignedByteToInt(status[11]) << 8) + (unsignedByteToInt(status[12]));
-            int ack_id = (unsignedByteToInt(status[13]) << 24) + (unsignedByteToInt(status[14]) << 16) + (unsignedByteToInt(status[15]) << 8) + (unsignedByteToInt(status[16]));
-            System.out.println("ack_id is " + ack_id);
+            int timestamp = (unsignedByteToInt(status[11]) << 24) + (unsignedByteToInt(status[12]) << 16) + (unsignedByteToInt(status[13]) << 8) + (unsignedByteToInt(status[14]));
+            int ack_id = (unsignedByteToInt(status[15]) << 24) + (unsignedByteToInt(status[16]) << 16) + (unsignedByteToInt(status[17]) << 8) + (unsignedByteToInt(status[18]));
             JSONObject jsonobj = createJsonObject(status[2], status[3], status[0], status[1], status[4] != 0, temp, humidity, timestamp, true);
-            HttpAsyncTask task = new HttpAsyncTask(jsonobj);
+            HttpAsyncTask task = new HttpAsyncTask(jsonobj, ack_id);
             task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, uri);
+            return;
         }
 
-        SharedPreferences sharedPref = MainActivity.this.getSharedPreferences(
-                getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+        if (!validUpdateTime()) {
+            return;
+        }
 
-        SharedPreferences.Editor e = sharedPref.edit();
+        sharedPref = MainActivity.this.getSharedPreferences(
+                getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+        e = sharedPref.edit();
         e.putInt(BACK_HEAT, status[0]);
         e.putInt(BOTTOM_HEAT, status[1]);
         e.putInt(BACK_FAN, status[2]);
@@ -466,6 +481,7 @@ public class MainActivity extends ActionBarActivity {
         public HttpAsyncTask(JSONObject jsonobj, int bluetooth_ack) {
             this(jsonobj);
             this.bluetooth_ack = bluetooth_ack;
+            System.out.println("Sending historical point!");
         }
         @Override
         protected Boolean doInBackground(String...urls) {
@@ -481,6 +497,7 @@ public class MainActivity extends ActionBarActivity {
                 InputStream inputStream = httpResponse.getEntity().getContent();
                 final String response = inputStreamToString(inputStream);
                 Log.d("httpPost", response);
+                System.out.println("Response: " + response);
                 if (this.bluetooth_ack == -1) {
                     runOnUiThread(new Runnable() {
                         @Override
@@ -495,15 +512,16 @@ public class MainActivity extends ActionBarActivity {
                             MainActivity.this.updateJsonText(jsonobj);
                         }
                     });
-                } else {
+                } else if (response.equals("success")) {
                     // Send bluetooth ack to chair
+                    System.out.println("Sending bluetooth ack");
                     byte[] ack_array = new byte[5];
                     ack_array[0] = (byte) (this.bluetooth_ack >> 24);
                     ack_array[1] = (byte) (this.bluetooth_ack >> 16);
                     ack_array[2] = (byte) (this.bluetooth_ack >> 8);
                     ack_array[3] = (byte) this.bluetooth_ack;
                     ack_array[4] = 2; // to indicate that this is an acknowledgement
-                    boolean result = writeBleByteArray(ack_array);
+                    final boolean result = writeBleByteArray(ack_array);
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
