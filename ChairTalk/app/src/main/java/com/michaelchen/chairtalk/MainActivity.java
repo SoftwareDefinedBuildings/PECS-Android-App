@@ -31,6 +31,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -52,7 +53,7 @@ public class MainActivity extends ActionBarActivity {
     private SeekBar seekBackFan;
     private SeekBar seekBottomHeat;
     private SeekBar seekBackHeat;
-    private static final String uri = "http://169.229.137.160:38001"; //"http://54.215.11.207:38001";
+    public static final String uri = "http://54.215.11.207:38001"; //"http://169.229.137.160:38001";
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
     public static final int refreshPeriod = 10000;
     public static final int smapDelay = 20000;
@@ -99,6 +100,30 @@ public class MainActivity extends ActionBarActivity {
         temp.put("bottomh", BOTTOM_HEAT);
         temp.put("time", LAST_TIME);
         jsonToKey = Collections.unmodifiableMap(temp);
+    }
+
+    public boolean synchronized_with_server = false;
+    private double curr_offset = 0;
+    private static final double ALPHA = 0.2;
+
+    public void registerTimeSync(double computed_offset) {
+        if (synchronized_with_server) {
+            curr_offset = curr_offset + ALPHA * (computed_offset - curr_offset);
+        } else {
+            curr_offset = computed_offset;
+            synchronized_with_server = true;
+        }
+    }
+
+    public void synchronizeTimeAsync() {
+        TimeSynchronizerAsyncTask tsat = new TimeSynchronizerAsyncTask();
+        tsat.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, uri);
+    }
+
+    public int get_time() {
+        double base = System.currentTimeMillis() / 1000.0;
+        double modified = curr_offset + base;
+        return (int) (modified + 0.5);
     }
 
     @Override
@@ -472,9 +497,11 @@ public class MainActivity extends ActionBarActivity {
 
     private class HttpAsyncTask extends AsyncTask<String, Void, Boolean> {
         private JSONObject jsonobj;
-        int bluetooth_ack;
+        private int bluetooth_ack;
+        protected String uri_dest;
         public HttpAsyncTask(JSONObject jsonobj) {
             super();
+            this.uri_dest = uri;
             this.jsonobj = jsonobj;
             this.bluetooth_ack = -1;
         }
@@ -483,19 +510,23 @@ public class MainActivity extends ActionBarActivity {
             this.bluetooth_ack = bluetooth_ack;
             System.out.println("Sending historical point!");
         }
+        protected String makeRequest() throws IOException {
+            System.out.println("Sending request to " + this.uri_dest);
+            DefaultHttpClient httpclient = new DefaultHttpClient();
+            HttpPost httpPostReq = new HttpPost(this.uri_dest);
+            StringEntity se = new StringEntity(jsonobj.toString());
+
+            httpPostReq.setEntity(se);
+            httpPostReq.setHeader("Accept", "application/json");
+            httpPostReq.setHeader("Content-type", "application/json");
+            HttpResponse httpResponse = httpclient.execute(httpPostReq);
+            InputStream inputStream = httpResponse.getEntity().getContent();
+            return inputStreamToString(inputStream);
+        }
         @Override
         protected Boolean doInBackground(String...urls) {
             try {
-                DefaultHttpClient httpclient = new DefaultHttpClient();
-                HttpPost httpPostReq = new HttpPost(uri);
-                StringEntity se = new StringEntity(jsonobj.toString());
-
-                httpPostReq.setEntity(se);
-                httpPostReq.setHeader("Accept", "application/json");
-                httpPostReq.setHeader("Content-type", "application/json");
-                HttpResponse httpResponse = httpclient.execute(httpPostReq);
-                InputStream inputStream = httpResponse.getEntity().getContent();
-                final String response = inputStreamToString(inputStream);
+                final String response = makeRequest();
                 Log.d("httpPost", response);
                 System.out.println("Response: " + response);
                 if (this.bluetooth_ack == -1) {
@@ -535,7 +566,7 @@ public class MainActivity extends ActionBarActivity {
                 }
 
                 return true;
-            } catch (Exception e) {
+            } catch (IOException e) {
                 Log.d("httpPost", "failed");
                 runOnUiThread(new Runnable() {
                     @Override
@@ -548,6 +579,37 @@ public class MainActivity extends ActionBarActivity {
         }
         // onPostExecute displays the results of the AsyncTask.
         protected void onPostExecute(String result) {
+        }
+    }
+
+    private class TimeSynchronizerAsyncTask extends HttpAsyncTask {
+        public TimeSynchronizerAsyncTask() {
+            super(new JSONObject());
+        }
+
+        @Override
+        protected Boolean doInBackground(String... urls) {
+            double start, end, server, computed_offset;
+            try {
+                start = System.currentTimeMillis() / 1000.0;
+                final String response = makeRequest();
+                end = System.currentTimeMillis() / 1000.0;
+                server = Double.parseDouble(response);
+                computed_offset = server - ((end + start) / 2);
+                registerTimeSync(computed_offset);
+                return true;
+            } catch (NumberFormatException nfe) {
+                System.out.println("Time synchronization attempt FAILS.");
+            } catch (IOException ioe) {
+                Log.d("httpPost", "failed");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getBaseContext(), "Check Internet Connection", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+            return false;
         }
     }
 

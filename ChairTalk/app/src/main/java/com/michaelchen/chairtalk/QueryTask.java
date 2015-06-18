@@ -17,7 +17,7 @@ import java.io.InputStream;
  */
 abstract class QueryTask extends AsyncTask<String, Void, Boolean> {
 
-    static final String uri = "http://54.215.11.207:38001";
+    static final String uri = MainActivity.uri;
     public static final String FAILURE = "";
 
     @Override

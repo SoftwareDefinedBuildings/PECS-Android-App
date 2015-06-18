@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.IBinder;
+import android.os.Handler;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
@@ -30,7 +31,6 @@ class BluetoothManager {
     public static final String SERV_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";
     public static final String CHAR_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb";
     public static final String MAC_KEY = "bluetooth_mac";
-
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
@@ -70,12 +70,23 @@ class BluetoothManager {
         }
     };
 
-    BluetoothManager(MainActivity activity, String deviceAddress) {
+    BluetoothManager(final MainActivity activity, String deviceAddress) {
         this.activity = activity;
         mDeviceAddress = deviceAddress;
         Intent gattServiceIntent = new Intent(activity, BluetoothLeService.class);
         activity.bindService(gattServiceIntent, mServiceConnection, activity.BIND_AUTO_CREATE);
         onResume();
+
+        //this.synchronize_time();
+        // Synchronize time every minute
+        final Handler h = new Handler();
+        final Runnable synchronizer = new Runnable() {
+            public void run() {
+                activity.synchronizeTimeAsync();
+                h.postDelayed(this, 60 * 1000);
+            }
+        };
+        synchronizer.run();
     }
 
     private void initBle() {
@@ -138,8 +149,14 @@ class BluetoothManager {
     }
 
     void writeTime() {
-        long currentTimeInMillis = System.currentTimeMillis();
-        int seconds = (int) (currentTimeInMillis/1000);
+        if (!activity.synchronized_with_server) {
+            System.out.println("Can't write current time.");
+            activity.synchronizeTimeAsync();
+            return;
+        }
+        System.out.println("Writing the current time.");
+        int seconds = activity.get_time();
+        System.out.printf("Current time is %d.\n", seconds);
         byte[] buf = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(seconds).array();
         byte[] toWrite = new byte[5];
         for (int i = 0; i < buf.length; i++) {
