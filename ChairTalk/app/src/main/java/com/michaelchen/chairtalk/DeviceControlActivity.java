@@ -53,6 +53,9 @@ public class DeviceControlActivity extends Activity {
     private final String LIST_NAME = "NAME";
     private final String LIST_UUID = "UUID";
     private boolean write = false;
+
+    private Intent gattServiceIntent;
+
     // Code to manage Service lifecycle.
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
@@ -186,7 +189,9 @@ public class DeviceControlActivity extends Activity {
             getActionBar().setTitle(mDeviceName);
             getActionBar().setDisplayHomeAsUpEnabled(true);
         }
-        Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
+        gattServiceIntent = new Intent(this, BluetoothLeService.class);
+
+        startService(gattServiceIntent);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
         Switch toggleSwitch = (Switch) findViewById(R.id.switch1);
@@ -217,6 +222,7 @@ public class DeviceControlActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         unbindService(mServiceConnection);
+        stopService(gattServiceIntent);
         mBluetoothLeService = null;
     }
     @Override
