@@ -76,17 +76,6 @@ class BluetoothManager {
         Intent gattServiceIntent = new Intent(activity, BluetoothLeService.class);
         activity.bindService(gattServiceIntent, mServiceConnection, activity.BIND_AUTO_CREATE);
         onResume();
-
-        //this.synchronize_time();
-        // Synchronize time every minute
-        final Handler h = new Handler();
-        final Runnable synchronizer = new Runnable() {
-            public void run() {
-                activity.synchronizeTimeAsync();
-                h.postDelayed(this, 60 * 1000);
-            }
-        };
-        synchronizer.run();
     }
 
     private void initBle() {
@@ -155,7 +144,7 @@ class BluetoothManager {
             return;
         }
         System.out.println("Writing the current time.");
-        int seconds = activity.get_time();
+        int seconds = (int) (0.5 + activity.get_time());
         System.out.printf("Current time is %d.\n", seconds);
         byte[] buf = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(seconds).array();
         byte[] toWrite = new byte[5];

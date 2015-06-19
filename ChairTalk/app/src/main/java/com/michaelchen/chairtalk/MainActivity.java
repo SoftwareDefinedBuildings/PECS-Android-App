@@ -56,8 +56,10 @@ public class MainActivity extends ActionBarActivity {
     public static final String uri = "http://54.215.11.207:38001"; //"http://169.229.137.160:38001";
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
     public static final int refreshPeriod = 10000;
-    public static final int smapDelay = 20000;
+    public static final int syncRefreshPeriod = 60000;
+    //public static final int smapDelay = 20000;
     private Timer timer = null;
+    private Timer syncTimer = null;
     private BluetoothManager bluetoothManager = null;
     private Date lastUpdate; //TODO: check to make sure smap loop never happens
 
@@ -120,10 +122,10 @@ public class MainActivity extends ActionBarActivity {
         tsat.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, uri);
     }
 
-    public int get_time() {
+    public double get_time() {
         double base = System.currentTimeMillis() / 1000.0;
         double modified = curr_offset + base;
-        return (int) (modified + 0.5);
+        return modified;
     }
 
     @Override
@@ -147,6 +149,9 @@ public class MainActivity extends ActionBarActivity {
         String name = sp.getString(SettingsActivity.NAME, "");
         TextView tv = (TextView) findViewById(R.id.textViewVoice);
         tv.setText(getString(R.string.hello) + " " + name);
+
+        rescheduleTimer(0);
+        rescheduleSyncTimer(0);
     }
 
     private void initBle() {
@@ -178,13 +183,15 @@ public class MainActivity extends ActionBarActivity {
             return;
         }
         rescheduleTimer(0);
+        rescheduleSyncTimer(0);
         if (bluetoothManager != null) bluetoothManager.onResume();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (timer != null) timer.cancel();
+        cancelTimer();
+        cancelSyncTimer();
         if (bluetoothManager != null) bluetoothManager.onPause();
     }
 
@@ -294,9 +301,9 @@ public class MainActivity extends ActionBarActivity {
     protected void updateLastUpdate() {
         SharedPreferences sharedPref = this.getSharedPreferences(
                 getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
-        long lastUpdateTime = sharedPref.getLong(getString(R.string.last_server_push_key), -1);
+        double lastUpdateTime = Double.longBitsToDouble(sharedPref.getLong(getString(R.string.last_server_push_key), 0));
         if (lastUpdateTime != -1) {
-            Date time = new Date(lastUpdateTime);
+            Date time = new Date((long) (lastUpdateTime + 0.5));
             TextView t = (TextView) findViewById(R.id.textViewlastUpdateTime);
             DateFormat df = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
             t.setText("Last Update (Push): " + df.format(time));
@@ -313,12 +320,12 @@ public class MainActivity extends ActionBarActivity {
         return e.commit();
     }
 
-    protected boolean updatePref(String key, long value) {
+    protected boolean updatePref(String key, double value) {
         // update heating or cooling
         SharedPreferences sharedPref = MainActivity.this.getSharedPreferences(
                 getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
         SharedPreferences.Editor e = sharedPref.edit();
-        e.putLong(key, value);
+        e.putLong(key, Double.doubleToRawLongBits(value));
         e.apply();
         return e.commit();
     }
@@ -343,14 +350,20 @@ public class MainActivity extends ActionBarActivity {
         t.setText(jsonobj.toString());
     }
 
+    /**
+     * Called when a change has just been made to the settings, and we don't want to pull data from the server
+     * immediately, since that would overwrite the changes that were made.
+     * This used to just call rescheduleTimer(smapDelay) to wait for the changes to propagate in the server first.
+     * Now, we use a better technique. I log the (synchronized) time and check when pulling data from the server
+     * whether it is at least as recent.
+     */
     private void rescheduleTimer() {
-        rescheduleTimer(smapDelay);
+        // rescheduleTimer(smapDelay); // WHAT THIS FUNCTION USED TO DO
+        MainActivity.this.updatePref(getString(R.string.last_server_push_key), get_time());
     }
 
     private void rescheduleTimer(int delay) {
-        if (timer != null) {
-            timer.cancel();
-        }
+        cancelTimer();
         timer = new Timer();
         TimerTask timerTask = new TimerTask() {
             @Override
@@ -361,6 +374,32 @@ public class MainActivity extends ActionBarActivity {
         timer.scheduleAtFixedRate(timerTask, delay, refreshPeriod);
     }
 
+    private void cancelTimer() {
+        if (timer != null) {
+            timer.cancel();
+            timer.purge();
+        }
+    }
+
+    private void rescheduleSyncTimer(int delay) {
+        cancelSyncTimer();
+        syncTimer = new Timer();
+        TimerTask timerTask = new TimerTask() {
+            public void run() {
+                System.out.println("SYNCHRONIZING TIME");
+                MainActivity.this.synchronizeTimeAsync();
+            }
+        };
+        timer.scheduleAtFixedRate(timerTask, delay, syncRefreshPeriod);
+    }
+
+    private void cancelSyncTimer() {
+        if (syncTimer != null) {
+            syncTimer.cancel();
+            syncTimer.purge();
+        }
+    }
+
     public void sendUpdateLocal() {
         // used to update everything if user changes value from app
         rescheduleTimer();
@@ -369,11 +408,12 @@ public class MainActivity extends ActionBarActivity {
         lastUpdate = new Date();
     }
 
-    private boolean validUpdateTime() {
+    // NO LONGER NEEDED, since we use server-side timestamps instead of delays
+    /*private boolean validUpdateTime() {
         Date currentTime = new Date();
         long seconds = (currentTime.getTime()-lastUpdate.getTime());
         return seconds > smapDelay;
-    }
+    }*/
 
     void setBleStatus(byte[] status) {
         if (status.length < 9) {
@@ -404,9 +444,11 @@ public class MainActivity extends ActionBarActivity {
             return;
         }
 
-        if (!validUpdateTime()) {
+        // If it's not historical, relay the data to the server for synchronization (15.4 may not be present)
+
+        /*if (!validUpdateTime()) {
             return;
-        }
+        }*/
 
         sharedPref = MainActivity.this.getSharedPreferences(
                 getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
@@ -503,11 +545,11 @@ public class MainActivity extends ActionBarActivity {
             super();
             this.uri_dest = uri;
             this.jsonobj = jsonobj;
-            this.bluetooth_ack = -1;
+            this.bluetooth_ack = -1; // sMAP update
         }
         public HttpAsyncTask(JSONObject jsonobj, int bluetooth_ack) {
             this(jsonobj);
-            this.bluetooth_ack = bluetooth_ack;
+            this.bluetooth_ack = bluetooth_ack; // Historical data update
             System.out.println("Sending historical point!");
         }
         protected String makeRequest() throws IOException {
@@ -534,11 +576,9 @@ public class MainActivity extends ActionBarActivity {
                         @Override
                         public void run() {
                             // Toast.makeText(getBaseContext(), "Post Result: " + response, Toast.LENGTH_SHORT).show();
-                            Date now = new Date();
-                            long time = now.getTime();
-                            int secTime = (int) (System.currentTimeMillis() / 1000);
-                            MainActivity.this.updatePref(getString(R.string.last_server_push_key), time);
-                            MainActivity.this.updatePref(LAST_TIME, secTime);
+                            double transactionTime = Double.parseDouble(response);
+                            MainActivity.this.updatePref(getString(R.string.last_server_push_key), transactionTime);
+                            MainActivity.this.updatePref(LAST_TIME, transactionTime);
                             MainActivity.this.updateLastUpdate();
                             MainActivity.this.updateJsonText(jsonobj);
                         }

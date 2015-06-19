@@ -38,27 +38,44 @@ public class UpdateTask extends QueryTask {
         return e.commit();
     }
 
+    protected boolean updatePref(String key, double value) {
+        // update heating or cooling
+        SharedPreferences sharedPref = context.getSharedPreferences(
+                context.getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+        SharedPreferences.Editor e = sharedPref.edit();
+        e.putLong(key, Double.doubleToRawLongBits(value));
+        e.apply();
+        return e.commit();
+    }
+
     @Override
     protected boolean processJsonObject(JSONObject jsonResponse) {
         boolean ret = false;
         int currentTime = 0;
-        int prevUpdateTime = context.getSharedPreferences(context.getString(
-                R.string.temp_preference_file_key), Context.MODE_PRIVATE).getInt(MainActivity.LAST_TIME, -1);
+        double prevUpdateTime = Double.longBitsToDouble(context.getSharedPreferences(context.getString(
+                R.string.temp_preference_file_key), Context.MODE_PRIVATE).getLong(MainActivity.LAST_TIME, 0));
+        try {
+            double readingTime = jsonResponse.getDouble("time");
+            if (readingTime <= prevUpdateTime) {
+                // ignore; we have a more recent version
+                System.out.println("ignoring; we have a more recent version! " + readingTime + " " + prevUpdateTime);
+                return false;
+            }
+        } catch (JSONException jsone) {
+            Log.e("JSONHandling", "json parse error", jsone);
+        }
+        System.out.println("Good timestamp: processing...");
+        ret = true;
         for(Map.Entry<String, String> entry : MainActivity.jsonToKey.entrySet()) {
             String jsonKey = entry.getKey();
             String localKey = entry.getValue();
 
             try {
-                int value = jsonResponse.getInt(jsonKey);
-                if (localKey.equals(MainActivity.LAST_TIME)) {
-                    currentTime = value;
-                    if (value > prevUpdateTime) {
-                        updatePref(localKey, value);
-                        ret = true;
-                    } else {
-                        Log.d("Update task", "rejected timestamp: " + value + ", needed: " + prevUpdateTime);
-                    }
+                if (localKey.equals(MainActivity.LAST_TIME)) { // jsonKey is "time"
+                    double value = jsonResponse.getDouble(jsonKey);
+                    updatePref(localKey, value);
                 } else {
+                    int value = jsonResponse.getInt(jsonKey);
                     updatePref(localKey, value);
                 }
             } catch (JSONException e) {
