@@ -191,22 +191,24 @@ public class MainActivity extends ActionBarActivity {
             initBle();
             return;
         }
-        rescheduleTimer(0);
-        rescheduleSyncTimer(0);
+        //rescheduleTimer(0);
+        //rescheduleSyncTimer(0);
         //if (bluetoothManager != null) bluetoothManager.onResume();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        cancelTimer();
-        cancelSyncTimer();
+        //cancelTimer();
+        //cancelSyncTimer();
         //if (bluetoothManager != null) bluetoothManager.onPause();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        cancelTimer();
+        cancelSyncTimer();
         if (bluetoothManager != null) bluetoothManager.onDestroy();
     }
 
