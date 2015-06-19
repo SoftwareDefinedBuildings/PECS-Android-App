@@ -25,6 +25,10 @@ abstract class QueryTask extends AsyncTask<String, Void, Boolean> {
         try {
             DefaultHttpClient httpclient = new DefaultHttpClient();
             String wfMac = params[0];
+            if (wfMac == "") {
+                System.out.println("Unknown Node ID, skipping getting stats");
+                return false;
+            }
             HttpGet request = new HttpGet(uri + "?macaddr=" + wfMac);
             HttpResponse httpResponse = httpclient.execute(request);
             InputStream inputStream = httpResponse.getEntity().getContent();

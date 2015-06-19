@@ -166,6 +166,15 @@ public class BluetoothActivity extends ListActivity{
 //        startActivity(intent);
 
 //        final Intent intent = new Intent(this, DeviceControlActivity.class);
+
+        /* Clear the registered serial number so we don't send data to the server under the wrong chair if we try to actuate. */
+        if (MainActivity.currActivity != null) {
+            MainActivity.currActivity.clearNodeID();
+            System.out.println("Cleared Node ID");
+        } else {
+            System.err.println("WARNING: MainActivity.currActivity is null");
+        }
+
         final Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra(MainActivity.EXTRAS_DEVICE_NAME, device.getName());
         intent.putExtra(MainActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());

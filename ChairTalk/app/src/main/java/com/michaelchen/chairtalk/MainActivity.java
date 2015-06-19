@@ -83,6 +83,11 @@ public class MainActivity extends ActionBarActivity {
     static final Map<String, String> keyToUuid;
     static final Map<String, String> jsonToKey;
 
+    /*  Definitely not the best way of doing things, but it lets any BluetoothActivity
+        find thecurrent MainActivity so it can clear the Node ID when needed.
+     */
+    static MainActivity currActivity;
+
     static {
         Map<String, String> temp = new HashMap<>();
         temp.put("27e1e889-b749-5cf9-8f90-5cc5f1750ddf", BACK_FAN);
@@ -152,6 +157,8 @@ public class MainActivity extends ActionBarActivity {
 
         rescheduleTimer(0);
         rescheduleSyncTimer(0);
+
+        MainActivity.currActivity = this;
     }
 
     private void initBle() {
@@ -174,6 +181,8 @@ public class MainActivity extends ActionBarActivity {
 
     @Override
     protected void onResume() {
+        MainActivity.currActivity = this;
+
         super.onResume();
         Intent i = getIntent();
         if (i != null && i.getBooleanExtra(SKIP_BL, false)) {
@@ -408,6 +417,15 @@ public class MainActivity extends ActionBarActivity {
         lastUpdate = new Date();
     }
 
+    public void clearNodeID() {
+        SharedPreferences sharedPref = MainActivity.this.getSharedPreferences(
+                getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+        SharedPreferences.Editor e = sharedPref.edit();
+        e.putString(WF_KEY, "");
+        e.apply();
+        e.commit();
+    }
+
     // NO LONGER NEEDED, since we use server-side timestamps instead of delays
     /*private boolean validUpdateTime() {
         Date currentTime = new Date();
@@ -571,6 +589,9 @@ public class MainActivity extends ActionBarActivity {
                 final String response = makeRequest();
                 Log.d("httpPost", response);
                 System.out.println("Response: " + response);
+                if (response.equals("")) {
+                    return false;
+                }
                 if (this.bluetooth_ack == -1) {
                     runOnUiThread(new Runnable() {
                         @Override
