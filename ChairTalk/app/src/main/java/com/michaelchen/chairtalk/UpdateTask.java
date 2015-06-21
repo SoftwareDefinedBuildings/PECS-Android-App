@@ -35,7 +35,9 @@ public class UpdateTask extends QueryTask {
         SharedPreferences.Editor e = sharedPref.edit();
         e.putInt(key, value);
         e.apply();
-        return e.commit();
+        boolean toReturn = e.commit();
+        MainActivity.currActivity.sendUpdateBle();
+        return toReturn;
     }
 
     protected boolean updatePref(String key, double value) {
@@ -56,10 +58,12 @@ public class UpdateTask extends QueryTask {
                 R.string.temp_preference_file_key), Context.MODE_PRIVATE).getLong(MainActivity.LAST_TIME, 0));
         try {
             double readingTime = jsonResponse.getDouble("time");
-            if (readingTime < prevUpdateTime) {
+            if (readingTime <= prevUpdateTime) {
                 // ignore; we have a more recent version
                 System.out.println("ignoring; we have a more recent version! " + readingTime + " " + prevUpdateTime);
                 return false;
+            } else {
+                System.out.println(readingTime + " " + prevUpdateTime);
             }
         } catch (JSONException jsone) {
             Log.e("JSONHandling", "json parse error", jsone);

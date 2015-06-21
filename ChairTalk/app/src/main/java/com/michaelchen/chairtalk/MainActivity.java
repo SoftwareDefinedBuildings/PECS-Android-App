@@ -507,10 +507,11 @@ public class MainActivity extends ActionBarActivity {
         return ret;
     }
 
-    private void sendUpdateBle() {
+    public void sendUpdateBle() {
         boolean result = writeBleByteArray(getByteStatus());
         if (!result) {
-            Toast.makeText(getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
+            //Toast.makeText(getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
+            System.err.println("Bluetooth update appears to fail.");
         }
     }
 
@@ -521,10 +522,10 @@ public class MainActivity extends ActionBarActivity {
         return false;
     }
 
-    void disconnectBluetoothManager() {
+    /*void disconnectBluetoothManager() {
         bluetoothManager = null;
         recreate();
-    }
+    }*/
 
     private JSONObject createJsonObject(int backFan, int bottomFan, int backHeat, int bottomHeat, boolean inChair,
                                         int temp, int humidity, int timestamp, boolean fromFS) {
@@ -801,14 +802,14 @@ public class MainActivity extends ActionBarActivity {
         Log.d(TAG, "Start repeating alarm");
     }
 
-    void setBluetoothConnected(boolean connected) {
+    /*void setBluetoothConnected(boolean connected) {
         if (connected) {
 
         } else {
             bluetoothManager = null;
             invalidateOptionsMenu();
         }
-    }
+    }*/
 
 
     @Override
