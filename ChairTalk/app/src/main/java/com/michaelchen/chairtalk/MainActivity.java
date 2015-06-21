@@ -55,7 +55,7 @@ public class MainActivity extends ActionBarActivity {
     private SeekBar seekBackHeat;
     public static final String uri = "http://54.215.11.207:38001"; //"http://169.229.137.160:38001";
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
-    public static final int refreshPeriod = 10000;
+    public static final int refreshPeriod = 15000;
     public static final int syncRefreshPeriod = 60000;
     //public static final int smapDelay = 20000;
     private Timer timer = null;
@@ -509,7 +509,9 @@ public class MainActivity extends ActionBarActivity {
 
     private void sendUpdateBle() {
         boolean result = writeBleByteArray(getByteStatus());
-        if (!result) Toast.makeText(getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
+        if (!result) {
+            Toast.makeText(getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private boolean writeBleByteArray(byte[] data) {
@@ -619,10 +621,11 @@ public class MainActivity extends ActionBarActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+                            TextView t = (TextView) findViewById(R.id.textViewVoice);
                             if (result) {
-                                Toast.makeText(getBaseContext(), "Successfully sent acknowledgement " + bluetooth_ack, Toast.LENGTH_SHORT).show();
+                                t.setText("Successfully sent acknowledgement " + bluetooth_ack);
                             } else {
-                                Toast.makeText(getBaseContext(), "Could not send acknowledgement " + bluetooth_ack, Toast.LENGTH_SHORT).show();
+                                t.setText("Could not sent acknowledgement " + bluetooth_ack);
                             }
                         }
                     });
@@ -773,6 +776,7 @@ public class MainActivity extends ActionBarActivity {
         SharedPreferences sharedPreferences = getSharedPreferences(getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
         String wfmac = sharedPreferences.getString(WF_KEY, "");
         task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, wfmac);
+        System.out.println("Querying sMAP");
 //        numTasksComplete = 0;
 //        for(String uuid : uuidToKey.keySet()) {
 //            SmapQueryAsyncTask task =  new SmapQueryAsyncTask(uuid);

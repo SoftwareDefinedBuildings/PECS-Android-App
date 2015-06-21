@@ -58,11 +58,11 @@ class BluetoothManager {
             final String action = intent.getAction();
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
-            } else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
+            } /*else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 mConnected = false;
                 activity.disconnectBluetoothManager();
                 activity.setBluetoothConnected(false);
-            } else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
+            } */else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
                 readData(intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA));
             } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 initBle();
@@ -157,7 +157,9 @@ class BluetoothManager {
     }
 
     boolean writeData(byte[] data) {
+        System.out.println("Writing data");
         if (characteristic == null || !mConnected || mBluetoothLeService == null) {
+            System.out.println(mConnected);
             return false;
         }
 

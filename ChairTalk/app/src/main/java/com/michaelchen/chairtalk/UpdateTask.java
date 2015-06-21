@@ -56,7 +56,7 @@ public class UpdateTask extends QueryTask {
                 R.string.temp_preference_file_key), Context.MODE_PRIVATE).getLong(MainActivity.LAST_TIME, 0));
         try {
             double readingTime = jsonResponse.getDouble("time");
-            if (readingTime <= prevUpdateTime) {
+            if (readingTime < prevUpdateTime) {
                 // ignore; we have a more recent version
                 System.out.println("ignoring; we have a more recent version! " + readingTime + " " + prevUpdateTime);
                 return false;
