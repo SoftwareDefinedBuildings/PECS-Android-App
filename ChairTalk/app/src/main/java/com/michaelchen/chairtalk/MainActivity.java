@@ -57,8 +57,8 @@ public class MainActivity extends ActionBarActivity {
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
     public static final int refreshPeriod = 15000;
     public static final int syncRefreshPeriod = 60000;
-    public static final int DISCONNECTED_BL_PERIOD = 4000;
-    public static final int CONNECTED_BL_PERIOD = 11000;
+    public static final int DISCONNECTED_BL_PERIOD = 7100;
+    public static final int CONNECTED_BL_PERIOD = 13000;
     public static int blCheckPeriod = DISCONNECTED_BL_PERIOD;
     //public static final int smapDelay = 20000;
     private Timer timer = null;
@@ -141,7 +141,7 @@ public class MainActivity extends ActionBarActivity {
             } else {
                 blCheckPeriod = DISCONNECTED_BL_PERIOD;
             }
-            rescheduleBLTimer(500);
+            rescheduleBLTimer(blCheckPeriod + 500);
         }
         verifiedConnection = connected;
     }
@@ -451,6 +451,7 @@ public class MainActivity extends ActionBarActivity {
             public void run() {
 
                 setVerifiedConnection(blCheck != blExpect);
+                System.out.println("Setting verified connection " + blCheck + " " + blExpect);
                 /*if (!verifiedConnection) {
                     repairBL();
                 }*/
@@ -514,6 +515,7 @@ public class MainActivity extends ActionBarActivity {
                         + unsignedByteToInt(status[3]);
                 if (receivedEcho == blExpect) {
                     System.out.println("Got expected acknowledgement");
+                    setVerifiedConnection(true);
                     // We got the acknowledgement we were looking for
                     blExpect++;
                 }
@@ -931,6 +933,7 @@ public class MainActivity extends ActionBarActivity {
             case R.id.action_bluetooth:
                 startActivity(new Intent(this, BluetoothActivity.class));
                 verifiedConnection = true; // be optimistic, but keep checking at a fast rate to check that guess!
+                rescheduleBLTimer(1500); // give the connection 1.5 s, then test if it actually worked
                 blExpect = blCheck + 1;
                 return true;
             case R.id.action_disconnect:
