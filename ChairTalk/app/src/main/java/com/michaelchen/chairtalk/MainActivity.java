@@ -214,7 +214,7 @@ public class MainActivity extends ActionBarActivity {
         }
         //rescheduleTimer(0);
         //rescheduleSyncTimer(0);
-        rescheduleBLTimer(0);
+        //rescheduleBLTimer(0);
         //if (bluetoothManager != null) bluetoothManager.onResume();
     }
 
@@ -223,7 +223,7 @@ public class MainActivity extends ActionBarActivity {
         super.onPause();
         //cancelTimer();
         //cancelSyncTimer();
-        cancelBLTimer(); // Don't ping bluetooth connection when paused
+        //cancelBLTimer(); // Don't ping bluetooth connection when paused
         //if (bluetoothManager != null) bluetoothManager.onPause();
     }
 
@@ -310,6 +310,15 @@ public class MainActivity extends ActionBarActivity {
         });
     }
 
+    /*private void repairBL() {
+        if (bluetoothManager != null) {
+            System.out.println("Repairing");
+            bluetoothManager.disconnect();
+            bluetoothManager = null;
+            //initBle();
+        }
+    }*/
+
     protected void setSeekbarPositions() {
         SharedPreferences sharedPref = this.getSharedPreferences(
                 getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
@@ -338,7 +347,7 @@ public class MainActivity extends ActionBarActivity {
                 getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
         double lastUpdateTime = Double.longBitsToDouble(sharedPref.getLong(getString(R.string.last_server_push_key), 0));
         if (lastUpdateTime != -1) {
-            Date time = new Date((long) (lastUpdateTime + 0.5));
+            Date time = new Date((long) (1000 * lastUpdateTime + 0.5));
             TextView t = (TextView) findViewById(R.id.textViewlastUpdateTime);
             DateFormat df = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
             t.setText("Last Update (Push): " + df.format(time));
@@ -442,6 +451,9 @@ public class MainActivity extends ActionBarActivity {
             public void run() {
 
                 setVerifiedConnection(blCheck != blExpect);
+                /*if (!verifiedConnection) {
+                    repairBL();
+                }*/
                 blCheck = blExpect;
 
                 byte[] bytes = new byte[5];
