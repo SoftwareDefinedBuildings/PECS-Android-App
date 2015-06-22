@@ -57,11 +57,18 @@ public class MainActivity extends ActionBarActivity {
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
     public static final int refreshPeriod = 15000;
     public static final int syncRefreshPeriod = 60000;
+    public static final int DISCONNECTED_BL_PERIOD = 4000;
+    public static final int CONNECTED_BL_PERIOD = 11000;
+    public static int blCheckPeriod = DISCONNECTED_BL_PERIOD;
     //public static final int smapDelay = 20000;
     private Timer timer = null;
     private Timer syncTimer = null;
+    private Timer blTimer = null;
+    private static int blCheck = 1;
+    private static int blExpect = 0;
     private BluetoothManager bluetoothManager = null;
     private Date lastUpdate; //TODO: check to make sure smap loop never happens
+    private boolean verifiedConnection = true;
 
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
@@ -127,6 +134,18 @@ public class MainActivity extends ActionBarActivity {
         tsat.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, uri);
     }
 
+    private void setVerifiedConnection(boolean connected) {
+        if (connected ^ verifiedConnection) {
+            if (connected) {
+                blCheckPeriod = CONNECTED_BL_PERIOD;
+            } else {
+                blCheckPeriod = DISCONNECTED_BL_PERIOD;
+            }
+            rescheduleBLTimer(500);
+        }
+        verifiedConnection = connected;
+    }
+
     public double get_time() {
         double base = System.currentTimeMillis() / 1000.0;
         double modified = curr_offset + base;
@@ -157,6 +176,7 @@ public class MainActivity extends ActionBarActivity {
 
         rescheduleTimer(0);
         rescheduleSyncTimer(0);
+        rescheduleBLTimer(0);
 
         MainActivity.currActivity = this;
     }
@@ -169,6 +189,7 @@ public class MainActivity extends ActionBarActivity {
             bluetoothManager = new BluetoothManager(this, mDeviceAddress);
             TextView t = (TextView) findViewById(R.id.chair_desc);
             t.setText(getString(R.string.chair_desc) + mDeviceAddress);
+            setVerifiedConnection(true);
         } else {
             SharedPreferences sharedPreferences = getSharedPreferences(getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
             String mac = sharedPreferences.getString(BluetoothManager.MAC_KEY, "");
@@ -193,6 +214,7 @@ public class MainActivity extends ActionBarActivity {
         }
         //rescheduleTimer(0);
         //rescheduleSyncTimer(0);
+        rescheduleBLTimer(0);
         //if (bluetoothManager != null) bluetoothManager.onResume();
     }
 
@@ -201,6 +223,7 @@ public class MainActivity extends ActionBarActivity {
         super.onPause();
         //cancelTimer();
         //cancelSyncTimer();
+        cancelBLTimer(); // Don't ping bluetooth connection when paused
         //if (bluetoothManager != null) bluetoothManager.onPause();
     }
 
@@ -209,6 +232,7 @@ public class MainActivity extends ActionBarActivity {
         super.onDestroy();
         cancelTimer();
         cancelSyncTimer();
+        cancelBLTimer();
         if (bluetoothManager != null) bluetoothManager.onDestroy();
     }
 
@@ -401,13 +425,42 @@ public class MainActivity extends ActionBarActivity {
                 MainActivity.this.synchronizeTimeAsync();
             }
         };
-        timer.scheduleAtFixedRate(timerTask, delay, syncRefreshPeriod);
+        syncTimer.scheduleAtFixedRate(timerTask, delay, syncRefreshPeriod);
     }
 
     private void cancelSyncTimer() {
         if (syncTimer != null) {
             syncTimer.cancel();
             syncTimer.purge();
+        }
+    }
+
+    private void rescheduleBLTimer(int delay) {
+        cancelBLTimer();
+        blTimer = new Timer();
+        TimerTask timerTask = new TimerTask() {
+            public void run() {
+
+                setVerifiedConnection(blCheck != blExpect);
+                blCheck = blExpect;
+
+                byte[] bytes = new byte[5];
+                bytes[0] = (byte) (blCheck >>> 24);
+                bytes[1] = (byte) ((blCheck >>> 16) & 0xFF);
+                bytes[2] = (byte) ((blCheck >>> 8) & 0xFF);
+                bytes[3] = (byte) ((blCheck & 0xFF));
+                bytes[4] = 3;
+                System.out.println("SENDING BLUETOOTH CHECK");
+                MainActivity.this.writeBleByteArray(bytes);
+            }
+        };
+        blTimer.scheduleAtFixedRate(timerTask, delay, blCheckPeriod);
+    }
+
+    private void cancelBLTimer() {
+        if (blTimer != null) {
+            blTimer.cancel();
+            blTimer.purge();
         }
     }
 
@@ -436,8 +489,30 @@ public class MainActivity extends ActionBarActivity {
     }*/
 
     void setBleStatus(byte[] status) {
-        if (status.length < 9) {
+        System.out.println("Got message of length " + status.length);
+        if (status.length < 5) {
             return;
+        }
+
+        if (status.length == 5) {
+            if (status[4] == 3) {
+                int receivedEcho = (unsignedByteToInt(status[0]) << 24)
+                        + (unsignedByteToInt(status[1]) << 16)
+                        + (unsignedByteToInt(status[2]) << 8)
+                        + unsignedByteToInt(status[3]);
+                if (receivedEcho == blExpect) {
+                    System.out.println("Got expected acknowledgement");
+                    // We got the acknowledgement we were looking for
+                    blExpect++;
+                }
+            }
+            return;
+        }
+
+        if (status.length == 11 || status.length == 19) {
+            // Valid protocol, assume it's coming from a chair
+            setVerifiedConnection(true);
+            blExpect = blCheck + 1;
         }
 
         int temp = ((unsignedByteToInt(status[5])) << 8) + unsignedByteToInt(status[6]);
@@ -507,10 +582,13 @@ public class MainActivity extends ActionBarActivity {
         return ret;
     }
 
+
     public void sendUpdateBle() {
+        if (!verifiedConnection) {
+            Toast.makeText(getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
+        }
         boolean result = writeBleByteArray(getByteStatus());
         if (!result) {
-            //Toast.makeText(getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
             System.err.println("Bluetooth update appears to fail.");
         }
     }
@@ -840,11 +918,14 @@ public class MainActivity extends ActionBarActivity {
                 return true;
             case R.id.action_bluetooth:
                 startActivity(new Intent(this, BluetoothActivity.class));
+                verifiedConnection = true; // be optimistic, but keep checking at a fast rate to check that guess!
+                blExpect = blCheck + 1;
                 return true;
             case R.id.action_disconnect:
                 if (bluetoothManager != null) {
                     bluetoothManager.disconnect();
                     bluetoothManager = null;
+                    setVerifiedConnection(false);
                 }
                 invalidateOptionsMenu();
                 return true;
