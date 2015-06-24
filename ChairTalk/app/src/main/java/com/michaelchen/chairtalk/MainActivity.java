@@ -57,18 +57,19 @@ public class MainActivity extends ActionBarActivity {
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
     public static final int refreshPeriod = 15000;
     public static final int syncRefreshPeriod = 60000;
-    public static final int DISCONNECTED_BL_PERIOD = 7100;
-    public static final int CONNECTED_BL_PERIOD = 13000;
+    public static final int DISCONNECTED_BL_PERIOD = 5100;
+    public static final int CONNECTED_BL_PERIOD = 8000;
     public static int blCheckPeriod = DISCONNECTED_BL_PERIOD;
     //public static final int smapDelay = 20000;
-    private Timer timer = null;
-    private Timer syncTimer = null;
-    private Timer blTimer = null;
+    private static Timer timer = null;
+    private static Timer syncTimer = null;
+    private static Timer blTimer = null;
     private static int blCheck = 1;
     private static int blExpect = 0;
     private BluetoothManager bluetoothManager = null;
     private Date lastUpdate; //TODO: check to make sure smap loop never happens
-    private boolean verifiedConnection = true;
+    public static boolean verifiedConnection = true;
+    public static boolean manuallyDisconnected = false;
 
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
@@ -76,6 +77,8 @@ public class MainActivity extends ActionBarActivity {
     protected static final int BLUETOOTH_REQUEST = 33;
 
     public static final long smapUpdateTime = AlarmManager.INTERVAL_HALF_HOUR;
+
+    public static boolean inMainApp = false;
 
     static final String BACK_FAN = "Back Fan";
     static final String BOTTOM_FAN = "Bottom Fan";
@@ -444,17 +447,27 @@ public class MainActivity extends ActionBarActivity {
         }
     }
 
-    private void rescheduleBLTimer(int delay) {
+
+    static int strikes = 0;
+    void rescheduleBLTimer(int delay) {
         cancelBLTimer();
         blTimer = new Timer();
         TimerTask timerTask = new TimerTask() {
             public void run() {
-
+                if (!inMainApp) {
+                    return;
+                }
                 setVerifiedConnection(blCheck != blExpect);
                 System.out.println("Setting verified connection " + blCheck + " " + blExpect);
-                /*if (!verifiedConnection) {
-                    repairBL();
-                }*/
+                if (!verifiedConnection) {
+                    if (manuallyDisconnected) {
+                        strikes = 0;
+                    } else if (++strikes == 3) {
+                        strikes = 0;
+                        disconnect();
+                        findChair();
+                    }
+                }
                 blCheck = blExpect;
 
                 byte[] bytes = new byte[5];
@@ -527,6 +540,8 @@ public class MainActivity extends ActionBarActivity {
             // Valid protocol, assume it's coming from a chair
             setVerifiedConnection(true);
             blExpect = blCheck + 1;
+        } else {
+            return; // invalid protocol, may crash app if I parse this
         }
 
         int temp = ((unsignedByteToInt(status[5])) << 8) + unsignedByteToInt(status[6]);
@@ -599,7 +614,11 @@ public class MainActivity extends ActionBarActivity {
 
     public void sendUpdateBle() {
         if (!verifiedConnection) {
-            Toast.makeText(getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
+            if (manuallyDisconnected) {
+                Toast.makeText(getApplicationContext(), getString(R.string.no_bl_manual), Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
+            }
         }
         boolean result = writeBleByteArray(getByteStatus());
         if (!result) {
@@ -918,6 +937,20 @@ public class MainActivity extends ActionBarActivity {
         return true;
     }
 
+    private void findChair() {
+        manuallyDisconnected = false;
+        inMainApp = false;
+        startActivity(new Intent(this, BluetoothActivity.class));
+    }
+
+    private void disconnect() {
+        if (bluetoothManager != null) {
+            bluetoothManager.disconnect();
+            bluetoothManager = null;
+            setVerifiedConnection(false);
+        }
+        invalidateOptionsMenu();
+    }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
@@ -931,18 +964,11 @@ public class MainActivity extends ActionBarActivity {
             case R.id.action_settings:
                 return true;
             case R.id.action_bluetooth:
-                startActivity(new Intent(this, BluetoothActivity.class));
-                verifiedConnection = true; // be optimistic, but keep checking at a fast rate to check that guess!
-                rescheduleBLTimer(1500); // give the connection 1.5 s, then test if it actually worked
-                blExpect = blCheck + 1;
+                findChair();
                 return true;
             case R.id.action_disconnect:
-                if (bluetoothManager != null) {
-                    bluetoothManager.disconnect();
-                    bluetoothManager = null;
-                    setVerifiedConnection(false);
-                }
-                invalidateOptionsMenu();
+                manuallyDisconnected = true;
+                disconnect();
                 return true;
         }
 

@@ -138,6 +138,7 @@ public class BluetoothActivity extends ListActivity{
     @Override
     public void onBackPressed() {
         super.onBackPressed();
+        MainActivity.inMainApp = true;
         Intent i = new Intent(this, MainActivity.class);
         i.putExtra(MainActivity.SKIP_BL, true);
         startActivity(i);
@@ -175,6 +176,16 @@ public class BluetoothActivity extends ListActivity{
         } else {
             System.err.println("WARNING: MainActivity.currActivity is null");
         }
+
+        MainActivity.inMainApp = true;
+
+        final SharedPreferences sharedPref = this.getSharedPreferences(
+                getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+
+        sharedPref.edit().putString(com.michaelchen.chairtalk.BluetoothManager.MAC_KEY, device.getAddress()).commit();
+
+        MainActivity.currActivity.verifiedConnection = true; // be optimistic, but keep checking at a fast rate to check that guess!
+        MainActivity.currActivity.rescheduleBLTimer(1500); // give the connection 1.5 s, then test if it actually worked
 
         final Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra(MainActivity.EXTRAS_DEVICE_NAME, device.getName());
@@ -222,6 +233,7 @@ public class BluetoothActivity extends ListActivity{
                     final Intent intent = new Intent(BluetoothActivity.this, MainActivity.class);
                     intent.putExtra(MainActivity.EXTRAS_DEVICE_NAME, device.getName());
                     intent.putExtra(MainActivity.EXTRAS_DEVICE_ADDRESS, macAddr);
+                    MainActivity.inMainApp = true;
                     startActivity(intent);
                 }
                 mLeDevices.add(device);
