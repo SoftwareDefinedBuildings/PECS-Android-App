@@ -8,6 +8,8 @@
         android:orderInCategory="100" app:showAsAction="never"/>
     <item android:id="@+id/action_disconnect" android:title="@string/action_disconnect"
         android:orderInCategory="100" app:showAsAction="never"/>
+    <item android:id="@+id/action_newchair" android:title="Connect to New Chair"
+        android:orderInCategory="100" app:showAsAction="never"/>
     <item android:id="@+id/action_voice" android:title="@string/voice"
         android:orderInCategory="100" app:showAsAction="ifRoom"
         android:onClick="onVoiceClick"

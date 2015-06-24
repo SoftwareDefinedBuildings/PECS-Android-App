@@ -158,6 +158,18 @@ public class BluetoothActivity extends ListActivity{
 //        final Intent intent = new Intent(this, DeviceControlActivity.class);
 //        intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_NAME, device.getName());
 //        intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
+
+        final SharedPreferences sharedPref = this.getSharedPreferences(
+                getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+
+        if (!MainActivity.MASTER_CHAIR_CONTROL) {
+            // Do nothing if a user clicks a chair they aren't currently connected to
+            String correct_macaddr = sharedPref.getString(com.michaelchen.chairtalk.BluetoothManager.MAC_KEY, "");
+            if (correct_macaddr.equals("") || correct_macaddr != device.getAddress()) {
+                return;
+            }
+        }
+
         if (mScanning) {
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
             mScanning = false;
@@ -178,9 +190,6 @@ public class BluetoothActivity extends ListActivity{
         }
 
         MainActivity.inMainApp = true;
-
-        final SharedPreferences sharedPref = this.getSharedPreferences(
-                getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
 
         sharedPref.edit().putString(com.michaelchen.chairtalk.BluetoothManager.MAC_KEY, device.getAddress()).commit();
 

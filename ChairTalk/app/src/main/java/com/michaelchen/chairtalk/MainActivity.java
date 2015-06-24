@@ -48,6 +48,8 @@ import java.util.TimerTask;
 
 public class MainActivity extends ActionBarActivity {
 
+    public static final boolean MASTER_CHAIR_CONTROL = false;
+
     public static final String TAG = "MainActivity";
     private SeekBar seekBottomFan;
     private SeekBar seekBackFan;
@@ -94,7 +96,7 @@ public class MainActivity extends ActionBarActivity {
     static final Map<String, String> jsonToKey;
 
     /*  Definitely not the best way of doing things, but it lets any BluetoothActivity
-        find thecurrent MainActivity so it can clear the Node ID when needed.
+        find the current MainActivity so it can clear the Node ID when needed.
      */
     static MainActivity currActivity;
 
@@ -969,6 +971,21 @@ public class MainActivity extends ActionBarActivity {
             case R.id.action_disconnect:
                 manuallyDisconnected = true;
                 disconnect();
+                return true;
+            case R.id.action_newchair:
+                manuallyDisconnected = false;
+                disconnect();
+                final SharedPreferences sharedPref = this.getSharedPreferences(
+                        getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+                sharedPref.edit().putString(com.michaelchen.chairtalk.BluetoothManager.MAC_KEY, "").commit();
+
+                if (MASTER_CHAIR_CONTROL) {
+                    findChair();
+                } else {
+                    Intent i = new Intent(this, Tutorial.class);
+                    startActivity(i);
+                    finish();
+                }
                 return true;
         }
 
