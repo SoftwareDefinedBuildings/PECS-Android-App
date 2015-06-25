@@ -165,7 +165,7 @@ public class BluetoothActivity extends ListActivity{
         if (!MainActivity.MASTER_CHAIR_CONTROL) {
             // Do nothing if a user clicks a chair they aren't currently connected to
             String correct_macaddr = sharedPref.getString(com.michaelchen.chairtalk.BluetoothManager.MAC_KEY, "");
-            if (correct_macaddr.equals("") || correct_macaddr != device.getAddress()) {
+            if (correct_macaddr != device.getAddress()) {
                 return;
             }
         }

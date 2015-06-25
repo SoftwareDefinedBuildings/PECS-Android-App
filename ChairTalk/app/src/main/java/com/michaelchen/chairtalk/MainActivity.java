@@ -518,6 +518,13 @@ public class MainActivity extends ActionBarActivity {
 
     void setBleStatus(byte[] status) {
         System.out.println("Got message of length " + status.length);
+        System.out.print("Got ");
+        for (int i = 0; i < status.length; i++) {
+            System.out.print(status[i]);
+            System.out.print(" ");
+        }
+        System.out.println();
+
         if (status.length < 5) {
             return;
         }
@@ -973,13 +980,12 @@ public class MainActivity extends ActionBarActivity {
                 disconnect();
                 return true;
             case R.id.action_newchair:
-                manuallyDisconnected = false;
                 disconnect();
-                final SharedPreferences sharedPref = this.getSharedPreferences(
-                        getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
-                sharedPref.edit().putString(com.michaelchen.chairtalk.BluetoothManager.MAC_KEY, "").commit();
-
+                manuallyDisconnected = true; // since it will try to reconnect if it gets resumed
                 if (MASTER_CHAIR_CONTROL) {
+                    final SharedPreferences sharedPref = this.getSharedPreferences(
+                            getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+                    sharedPref.edit().putString(com.michaelchen.chairtalk.BluetoothManager.MAC_KEY, "").commit();
                     findChair();
                 } else {
                     Intent i = new Intent(this, Tutorial.class);

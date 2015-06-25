@@ -78,6 +78,12 @@ public class Tutorial extends Activity {
     private SystemUiHider mSystemUiHider;
 
     @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        MainActivity.manuallyDisconnected = false;
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
@@ -337,6 +343,7 @@ public class Tutorial extends Activity {
                                 sharedPref.edit().putBoolean(MainActivity.FIRST_LAUNCH, false).commit();
                                 sharedPref.edit().putString(BluetoothManager.MAC_KEY, blmac).commit();
                                 sharedPref.edit().putString(MainActivity.WF_KEY, wfmac).commit();
+                                MainActivity.manuallyDisconnected = false;
                                 Toast.makeText(getBaseContext(), "Got id: " + wfmac, Toast.LENGTH_SHORT).show();
                                 Intent i = new Intent(Tutorial.this, MainActivity.class);
                                 startActivity(i);
