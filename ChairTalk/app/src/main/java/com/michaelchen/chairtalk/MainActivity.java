@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
+import android.os.PowerManager;
 import android.preference.PreferenceManager;
 import android.speech.RecognizerIntent;
 import android.support.v7.app.ActionBarActivity;
@@ -68,7 +69,7 @@ public class MainActivity extends ActionBarActivity {
     private static Timer blTimer = null;
     private static int blCheck = 1;
     private static int blExpect = 0;
-    private BluetoothManager bluetoothManager = null;
+    private static BluetoothManager bluetoothManager = null;
     private Date lastUpdate; //TODO: check to make sure smap loop never happens
     public static boolean verifiedConnection = true;
     public static boolean manuallyDisconnected = false;
@@ -94,6 +95,8 @@ public class MainActivity extends ActionBarActivity {
     static final Map<String, String> uuidToKey;
     static final Map<String, String> keyToUuid;
     static final Map<String, String> jsonToKey;
+
+    static PowerManager.WakeLock wl;
 
     /*  Definitely not the best way of doing things, but it lets any BluetoothActivity
         find the current MainActivity so it can clear the Node ID when needed.
@@ -184,6 +187,12 @@ public class MainActivity extends ActionBarActivity {
         rescheduleBLTimer(0);
 
         MainActivity.currActivity = this;
+
+        /*if (wl == null) {
+            PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+            wl = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "KeepAliveBL");
+        }
+        wl.acquire();*/
     }
 
     private void initBle() {
@@ -191,7 +200,9 @@ public class MainActivity extends ActionBarActivity {
         if (intent != null && intent.hasExtra(EXTRAS_DEVICE_NAME) && intent.hasExtra(EXTRAS_DEVICE_ADDRESS)) {
 //            String mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
             String mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
-            bluetoothManager = new BluetoothManager(this, mDeviceAddress);
+            if (bluetoothManager == null || !bluetoothManager.isConnected()) {
+                bluetoothManager = new BluetoothManager(this, mDeviceAddress);
+            }
             TextView t = (TextView) findViewById(R.id.chair_desc);
             t.setText(getString(R.string.chair_desc) + mDeviceAddress);
             setVerifiedConnection(true);
@@ -235,10 +246,10 @@ public class MainActivity extends ActionBarActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        cancelTimer();
+        /*cancelTimer();
         cancelSyncTimer();
         cancelBLTimer();
-        if (bluetoothManager != null) bluetoothManager.onDestroy();
+        if (bluetoothManager != null) bluetoothManager.onDestroy();*/
     }
 
     protected void initSeekbarListeners() {
@@ -461,7 +472,9 @@ public class MainActivity extends ActionBarActivity {
                 }
                 setVerifiedConnection(blCheck != blExpect);
                 System.out.println("Setting verified connection " + blCheck + " " + blExpect);
-                if (!verifiedConnection) {
+                if (verifiedConnection) {
+                    strikes = 0;
+                } else {
                     if (manuallyDisconnected) {
                         strikes = 0;
                     } else if (++strikes == 3) {
@@ -624,9 +637,9 @@ public class MainActivity extends ActionBarActivity {
     public void sendUpdateBle() {
         if (!verifiedConnection) {
             if (manuallyDisconnected) {
-                Toast.makeText(getApplicationContext(), getString(R.string.no_bl_manual), Toast.LENGTH_SHORT).show();
+                Toast.makeText(currActivity.getApplicationContext(), getString(R.string.no_bl_manual), Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
+                Toast.makeText(currActivity.getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
             }
         }
         boolean result = writeBleByteArray(getByteStatus());

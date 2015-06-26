@@ -74,6 +74,7 @@ class BluetoothManager {
         this.activity = activity;
         mDeviceAddress = deviceAddress;
         Intent gattServiceIntent = new Intent(activity, BluetoothLeService.class);
+        activity.getBaseContext().startService(gattServiceIntent);
         activity.bindService(gattServiceIntent, mServiceConnection, activity.BIND_AUTO_CREATE);
         onResume();
     }
