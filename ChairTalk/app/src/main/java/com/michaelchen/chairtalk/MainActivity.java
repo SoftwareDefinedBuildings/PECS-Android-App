@@ -176,7 +176,7 @@ public class MainActivity extends ActionBarActivity {
         setSeekbarPositions();
         updateLastUpdate();
         lastUpdate = new Date();
-        setRecurringAlarm(smapUpdateTime);
+        setRecurringAlarm(refreshPeriod);
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
         String name = sp.getString(SettingsActivity.NAME, "");
         TextView tv = (TextView) findViewById(R.id.textViewVoice);
@@ -424,6 +424,7 @@ public class MainActivity extends ActionBarActivity {
 
     private void rescheduleTimer(int delay) {
         cancelTimer();
+        if (1 == 1)        return;
         timer = new Timer();
         TimerTask timerTask = new TimerTask() {
             @Override

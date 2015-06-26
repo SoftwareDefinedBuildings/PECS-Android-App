@@ -25,5 +25,6 @@ public class UpdateService extends IntentService {
         String wfMac = sharedPreferences.getString(MainActivity.WF_KEY, "");
         QueryTask task = new UpdateTask(c);
         task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, wfMac);
+        stopSelf();
     }
 }
