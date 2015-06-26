@@ -233,7 +233,7 @@ public class BluetoothActivity extends ListActivity{
         public void addDevice(BleAdvertisedData device) {
             if(!mLeDevices.contains(device)) {
                 String macAddr = device.getDevice().getAddress();
-                if (macAddr.equals(searchingMac)) {
+                if (macAddr.toLowerCase().equals(searchingMac.toLowerCase())) {
                     Log.d("BluetoothActivity", "found searching ble chair");
                     if (mScanning) {
                         mBluetoothAdapter.stopLeScan(mLeScanCallback);
