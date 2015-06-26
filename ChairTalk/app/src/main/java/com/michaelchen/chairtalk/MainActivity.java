@@ -2,6 +2,7 @@ package com.michaelchen.chairtalk;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -66,6 +67,7 @@ public class MainActivity extends ActionBarActivity {
     public static final int DISCONNECTED_BL_PERIOD = 5100;
     public static final int CONNECTED_BL_PERIOD = 8000;
     public static int blCheckPeriod = DISCONNECTED_BL_PERIOD;
+    public static int prevBLCheckPeriod = 0; // something different so it fires the first time
     //public static final int smapDelay = 20000;
     private static Timer timer = null;
     private static Timer syncTimer = null;
@@ -432,87 +434,44 @@ public class MainActivity extends ActionBarActivity {
         MainActivity.this.updatePref(getString(R.string.last_server_push_key), get_time());
     }
 
-    private void rescheduleTimer(int delay) {
-        cancelTimer();
-        if (1 == 1)        return;
-        timer = new Timer();
-        TimerTask timerTask = new TimerTask() {
-            @Override
-            public void run() {
-                MainActivity.this.querySmap();
-            }
-        };
-        timer.scheduleAtFixedRate(timerTask, delay, refreshPeriod);
-    }
-
-    private void cancelTimer() {
-        if (timer != null) {
-            timer.cancel();
-            timer.purge();
-        }
-    }
-
-    private void rescheduleSyncTimer(int delay) {
-        cancelSyncTimer();
-        syncTimer = new Timer();
-        TimerTask timerTask = new TimerTask() {
-            public void run() {
-                System.out.println("SYNCHRONIZING TIME");
-                MainActivity.this.synchronizeTimeAsync();
-            }
-        };
-        syncTimer.scheduleAtFixedRate(timerTask, delay, syncRefreshPeriod);
-    }
-
-    private void cancelSyncTimer() {
-        if (syncTimer != null) {
-            syncTimer.cancel();
-            syncTimer.purge();
-        }
-    }
-
-
     static int strikes = 0;
-    void rescheduleBLTimer(int delay) {
-        cancelBLTimer();
-        blTimer = new Timer();
-        TimerTask timerTask = new TimerTask() {
-            public void run() {
-                if (!inMainApp) {
-                    return;
-                }
-                setVerifiedConnection(blCheck != blExpect);
-                System.out.println("Setting verified connection " + blCheck + " " + blExpect);
-                if (verifiedConnection) {
-                    strikes = 0;
-                } else {
-                    if (manuallyDisconnected) {
-                        strikes = 0;
-                    } else if (++strikes == 3) {
-                        strikes = 0;
-                        disconnect();
-                        findChair();
-                    }
-                }
-                blCheck = blExpect;
-
-                byte[] bytes = new byte[5];
-                bytes[0] = (byte) (blCheck >>> 24);
-                bytes[1] = (byte) ((blCheck >>> 16) & 0xFF);
-                bytes[2] = (byte) ((blCheck >>> 8) & 0xFF);
-                bytes[3] = (byte) ((blCheck & 0xFF));
-                bytes[4] = 3;
-                System.out.println("SENDING BLUETOOTH CHECK");
-                MainActivity.this.writeBleByteArray(bytes);
+    public static class BLCheckReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            System.out.println("RECEIVED INTENT");
+            if (!inMainApp || currActivity == null) {
+                return;
             }
-        };
-        blTimer.scheduleAtFixedRate(timerTask, delay, blCheckPeriod);
+            currActivity.setVerifiedConnection(blCheck != blExpect);
+            System.out.println("Setting verified connection " + blCheck + " " + blExpect);
+            if (verifiedConnection) {
+                strikes = 0;
+            } else {
+                if (manuallyDisconnected) {
+                    strikes = 0;
+                } else if (++strikes == 3) {
+                    strikes = 0;
+                    currActivity.disconnect();
+                    currActivity.findChair();
+                }
+            }
+            blCheck = blExpect;
+
+            byte[] bytes = new byte[5];
+            bytes[0] = (byte) (blCheck >>> 24);
+            bytes[1] = (byte) ((blCheck >>> 16) & 0xFF);
+            bytes[2] = (byte) ((blCheck >>> 8) & 0xFF);
+            bytes[3] = (byte) ((blCheck & 0xFF));
+            bytes[4] = 3;
+            System.out.println("SENDING BLUETOOTH CHECK");
+            currActivity.writeBleByteArray(bytes);
+        }
     }
 
-    private void cancelBLTimer() {
-        if (blTimer != null) {
-            blTimer.cancel();
-            blTimer.purge();
+    void rescheduleBLTimer(int delay) {
+        if (blCheckPeriod != prevBLCheckPeriod) {
+            prevBLCheckPeriod = blCheckPeriod;
+            setRecurringBLAlarm(blCheckPeriod, delay);
         }
     }
 
@@ -953,6 +912,10 @@ public class MainActivity extends ActionBarActivity {
 
     private void setRecurringSyncAlarm(long period, long delay) {
         setRecurringAlarmHelper(period, delay, SyncTimeReceiver.class, 1);
+    }
+
+    private void setRecurringBLAlarm(long period, long delay) {
+        setRecurringAlarmHelper(period, delay, BLCheckReceiver.class, 2);
     }
 
     /*void setBluetoothConnected(boolean connected) {
