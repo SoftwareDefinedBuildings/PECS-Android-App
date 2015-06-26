@@ -51,6 +51,9 @@ public class MainActivity extends ActionBarActivity {
 
     public static final boolean MASTER_CHAIR_CONTROL = false;
 
+    private static boolean setRefreshAlarm = false;
+    private static boolean setSyncAlarm = false;
+
     public static final String TAG = "MainActivity";
     private SeekBar seekBottomFan;
     private SeekBar seekBackFan;
@@ -176,14 +179,21 @@ public class MainActivity extends ActionBarActivity {
         setSeekbarPositions();
         updateLastUpdate();
         lastUpdate = new Date();
-        setRecurringAlarm(refreshPeriod);
+        if (!setRefreshAlarm) {
+            setRecurringAlarm(refreshPeriod, 0);
+            setRefreshAlarm = true;
+        }
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
         String name = sp.getString(SettingsActivity.NAME, "");
         TextView tv = (TextView) findViewById(R.id.textViewVoice);
         tv.setText(getString(R.string.hello) + " " + name);
 
-        rescheduleTimer(0);
-        rescheduleSyncTimer(0);
+        //rescheduleTimer(0);
+        //rescheduleSyncTimer(0);
+        if (!setSyncAlarm) {
+            setRecurringSyncAlarm(syncRefreshPeriod, 0);
+            setSyncAlarm = true;
+        }
         rescheduleBLTimer(0);
 
         MainActivity.currActivity = this;
@@ -798,6 +808,7 @@ public class MainActivity extends ActionBarActivity {
                 server = Double.parseDouble(response);
                 computed_offset = server - ((end + start) / 2);
                 registerTimeSync(computed_offset);
+                System.out.println("Successfully synchronized time.");
                 return true;
             } catch (NumberFormatException nfe) {
                 System.out.println("Time synchronization attempt FAILS.");
@@ -926,14 +937,22 @@ public class MainActivity extends ActionBarActivity {
         }
     }
 
-    private void setRecurringAlarm(long period) {
-        Intent intent = new Intent(getApplicationContext(), StartServiceReceiver.class);
+    private void setRecurringAlarmHelper(long period, long delay, Class klass, int requestID) {
+        Intent intent = new Intent(getApplicationContext(), klass);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, requestID, intent, PendingIntent.FLAG_CANCEL_CURRENT);
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), period, pendingIntent);
+        alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delay, period, pendingIntent);
         Log.d(TAG, "Start repeating alarm");
+    }
+
+    private void setRecurringAlarm(long period, long delay) {
+        setRecurringAlarmHelper(period, delay, StartServiceReceiver.class, 0);
+    }
+
+    private void setRecurringSyncAlarm(long period, long delay) {
+        setRecurringAlarmHelper(period, delay, SyncTimeReceiver.class, 1);
     }
 
     /*void setBluetoothConnected(boolean connected) {

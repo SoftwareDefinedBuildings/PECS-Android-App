@@ -63,6 +63,9 @@
         <receiver android:name=".StartServiceReceiver" >
         </receiver>
 
+        <receiver android:name=".SyncTimeReceiver" >
+        </receiver>
+
         <service
             android:name=".UpdateService"
             android:enabled="true"
