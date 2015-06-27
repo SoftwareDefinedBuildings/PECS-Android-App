@@ -9,6 +9,8 @@
     <string name="seek_bottom_heat">Bottom Heat</string>
     <string name="seek_back_fan">Back Fan</string>
     <string name="seek_bottom_fan">Bottom Fan</string>
+    <string name="seek_back">Back Setting</string>
+    <string name="seek_bottom">Bottom Setting</string>
     <string name="temp_preference_file_key">com.michaelchen.chairtalk.heat_fans</string>
     <string name="in_chair_key">user.in_chair</string>
     <string name="last_server_push_key">time.last_push_to_server</string>

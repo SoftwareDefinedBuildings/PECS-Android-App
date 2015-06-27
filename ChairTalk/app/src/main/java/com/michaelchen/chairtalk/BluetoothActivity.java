@@ -183,7 +183,7 @@ public class BluetoothActivity extends ListActivity{
         /* Clear the registered serial number so we don't send data to the server under the wrong chair if we try to actuate. */
         if (MainActivity.currActivity != null) {
             MainActivity.currActivity.clearNodeID();
-            MainActivity.currActivity.sendUpdateBle();
+            MainActivity.currActivity.sendUpdateBle(true);
             System.out.println("Cleared Node ID");
         } else {
             System.err.println("WARNING: MainActivity.currActivity is null");

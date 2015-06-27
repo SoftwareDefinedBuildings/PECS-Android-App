@@ -37,7 +37,7 @@ public class UpdateTask extends QueryTask {
         e.apply();
         boolean toReturn = e.commit();
         MainActivity.currActivity.setSeekbarPositions();
-        MainActivity.currActivity.sendUpdateBle();
+        MainActivity.currActivity.sendUpdateBle(false);
         return toReturn;
     }
 

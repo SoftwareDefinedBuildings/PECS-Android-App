@@ -56,10 +56,16 @@ public class MainActivity extends ActionBarActivity {
     private static boolean setSyncAlarm = false;
 
     public static final String TAG = "MainActivity";
+    /*
+    FOR SEPARATE SLIDERS
     private SeekBar seekBottomFan;
     private SeekBar seekBackFan;
     private SeekBar seekBottomHeat;
     private SeekBar seekBackHeat;
+    */
+    // FOR COMBINED SLIDERS
+    private SeekBar seekBack;
+    private SeekBar seekBottom;
     public static final String uri = "http://54.215.11.207:38001"; //"http://169.229.137.160:38001";
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
     public static final int refreshPeriod = 15000;
@@ -264,6 +270,7 @@ public class MainActivity extends ActionBarActivity {
         if (bluetoothManager != null) bluetoothManager.onDestroy();*/
     }
 
+    /* FOR FOUR SLIDERS, ONE FOR EACH SEPARATE CONTROL
     protected void initSeekbarListeners() {
         seekBackFan = (SeekBar) findViewById(R.id.seekBarBackFan);
         seekBackFan.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -336,6 +343,49 @@ public class MainActivity extends ActionBarActivity {
                 sendUpdateLocal();
             }
         });
+    }*/
+
+    // FOR TWO SLIDERS
+    class ChairSeekbarListener implements SeekBar.OnSeekBarChangeListener {
+        private int currentPosition = 0;
+        private String heater, fan;
+
+        public ChairSeekbarListener(String heater, String fan) {
+            this.heater = heater;
+            this.fan = fan;
+        }
+
+        public void onProgressChanged(SeekBar seekbar, int progress, boolean fromUser) {
+            currentPosition = progress;
+        }
+
+        public void onStartTrackingTouch(SeekBar seekBar) {
+        }
+
+        public void onStopTrackingTouch(SeekBar seekBar) {
+            int heatSetting, fanSetting;
+            if (currentPosition > 100) {
+                heatSetting = 0;
+                fanSetting = currentPosition - 100;
+            } else if (currentPosition < 100) {
+                heatSetting = 100 - currentPosition;
+                fanSetting = 0;
+            } else {
+                heatSetting = 0;
+                fanSetting = 0;
+            }
+
+            MainActivity.this.updatePref(this.fan, fanSetting);
+            MainActivity.this.updatePref(this.heater, heatSetting);
+            sendUpdateLocal();
+        }
+    }
+    protected void initSeekbarListeners() {
+        seekBack = (SeekBar) findViewById(R.id.seekBarBack);
+        seekBack.setOnSeekBarChangeListener(new ChairSeekbarListener(BACK_HEAT, BACK_FAN));
+
+        seekBottom = (SeekBar) findViewById(R.id.seekBarBottom);
+        seekBottom.setOnSeekBarChangeListener(new ChairSeekbarListener(BOTTOM_HEAT, BOTTOM_FAN));
     }
 
     /*private void repairBL() {
@@ -347,6 +397,8 @@ public class MainActivity extends ActionBarActivity {
         }
     }*/
 
+    /*
+        FOR FOUR SLIDERS, SEPARATE FOR EACH CONTROL
     protected void setSeekbarPositions() {
         SharedPreferences sharedPref = this.getSharedPreferences(
                 getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
@@ -360,6 +412,32 @@ public class MainActivity extends ActionBarActivity {
         seekBackHeat.setProgress(backHeatPos);
         int bottomHeatPos = sharedPref.getInt(BOTTOM_HEAT, 0);
         seekBottomHeat.setProgress(bottomHeatPos); 
+    }*/
+
+    // FOR TWO SLIDERS
+    protected void setSeekbarPositions() {
+        SharedPreferences sharedPref = this.getSharedPreferences(
+                getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+
+        int backFanPos = sharedPref.getInt(BACK_FAN, 0);
+        int bottomFanPos = sharedPref.getInt(BOTTOM_FAN, 0);
+        int backHeatPos = sharedPref.getInt(BACK_HEAT, 0);
+        int bottomHeatPos = sharedPref.getInt(BOTTOM_HEAT, 0);
+        if ((backFanPos * backHeatPos) != 0 || (bottomFanPos * bottomHeatPos) != 0) {
+            System.out.println("WARNING: found settings more general than UI can display");
+        }
+
+        if (bottomFanPos == 0) {
+            seekBottom.setProgress(100 - bottomHeatPos);
+        } else {
+            seekBottom.setProgress(100 + bottomFanPos);
+        }
+
+        if (backFanPos == 0) {
+            seekBack.setProgress(100 - backHeatPos);
+        } else {
+            seekBack.setProgress(100 + backFanPos);
+        }
     }
 
     protected void updateLastPullTime() {
@@ -478,7 +556,7 @@ public class MainActivity extends ActionBarActivity {
     public void sendUpdateLocal() {
         // used to update everything if user changes value from app
         rescheduleTimer();
-        sendUpdateBle();
+        sendUpdateBle(true);
         sendUpdateSmap(false);
         lastUpdate = new Date();
     }
@@ -604,8 +682,8 @@ public class MainActivity extends ActionBarActivity {
     }
 
 
-    public void sendUpdateBle() {
-        if (!verifiedConnection) {
+    public void sendUpdateBle(boolean notifyUser) {
+        if (notifyUser && !verifiedConnection) {
             if (manuallyDisconnected) {
                 Toast.makeText(currActivity.getApplicationContext(), getString(R.string.no_bl_manual), Toast.LENGTH_SHORT).show();
             } else {
@@ -862,7 +940,7 @@ public class MainActivity extends ActionBarActivity {
         @Override
         protected void onPostExecute(Boolean result) {
             if (result) {
-                sendUpdateBle();
+                sendUpdateBle(false);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -892,7 +970,7 @@ public class MainActivity extends ActionBarActivity {
     private void signalTaskComplete() {
         numTasksComplete++;
         if (numTasksComplete == uuidToKey.size()) {
-            sendUpdateBle();
+            sendUpdateBle(true);
         }
     }
 

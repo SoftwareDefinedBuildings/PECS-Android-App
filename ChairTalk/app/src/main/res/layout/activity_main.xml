@@ -16,6 +16,8 @@
         android:layout_alignParentStart="true">
 
 
+        <!--
+        FOR FOUR SLIDERS, ONE FOR EACH CONTROL
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -93,8 +95,34 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:id="@+id/seekBarBottomFan"
-            android:max="100"/>
+            android:max="100"/>-->
 
+        <!-- FOR TWO SLIDERS -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/seek_back"
+            android:id="@+id/textViewBack" />
+
+        <SeekBar
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/seekBarBack"
+            android:max="200"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/seek_bottom"
+            android:id="@+id/textViewBottom" />
+
+        <SeekBar
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/seekBarBottom"
+            android:max="200"/>
 
         <TextView
             android:layout_width="wrap_content"
