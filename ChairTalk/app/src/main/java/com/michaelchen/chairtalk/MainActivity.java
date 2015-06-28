@@ -70,14 +70,11 @@ public class MainActivity extends ActionBarActivity {
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
     public static final int refreshPeriod = 15000;
     public static final int syncRefreshPeriod = 60000;
-    public static final int DISCONNECTED_BL_PERIOD = 5100;
-    public static final int CONNECTED_BL_PERIOD = 8000;
+    public static final int DISCONNECTED_BL_PERIOD = 7100;
+    public static final int CONNECTED_BL_PERIOD = 12000;
     public static int blCheckPeriod = DISCONNECTED_BL_PERIOD;
     public static int prevBLCheckPeriod = 0; // something different so it fires the first time
     //public static final int smapDelay = 20000;
-    private static Timer timer = null;
-    private static Timer syncTimer = null;
-    private static Timer blTimer = null;
     private static int blCheck = 1;
     private static int blExpect = 0;
     private static BluetoothManager bluetoothManager = null;
@@ -382,9 +379,11 @@ public class MainActivity extends ActionBarActivity {
     }
     protected void initSeekbarListeners() {
         seekBack = (SeekBar) findViewById(R.id.seekBarBack);
+        seekBack.setBackgroundDrawable(null);
         seekBack.setOnSeekBarChangeListener(new ChairSeekbarListener(BACK_HEAT, BACK_FAN));
 
         seekBottom = (SeekBar) findViewById(R.id.seekBarBottom);
+        seekBottom.setBackgroundDrawable(null);
         seekBottom.setOnSeekBarChangeListener(new ChairSeekbarListener(BOTTOM_HEAT, BOTTOM_FAN));
     }
 
