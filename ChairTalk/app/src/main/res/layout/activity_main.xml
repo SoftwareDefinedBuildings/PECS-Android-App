@@ -98,36 +98,60 @@
             android:max="100"/>-->
 
         <!-- FOR TWO SLIDERS -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceMedium"
-            android:text="@string/seek_back"
-            android:id="@+id/textViewBack" />
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent">
+            <LinearLayout
+                android:orientation="vertical"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="fill_parent">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?android:attr/textAppearanceMedium"
+                    android:text="@string/seek_back"
+                    android:id="@+id/textViewBack" />
 
-        <SeekBar
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:id="@+id/seekBarBack"
-            android:progressDrawable="@drawable/seekbarprogress"
-            android:maxHeight="2dp"
-            android:max="200"/>
+                <!-- translationX = -300dp + half of width of this LinearLayout -->
+                <SeekBar
+                    android:layout_width="300dp"
+                    android:transformPivotX="300dp"
+                    android:translationX="-225dp"
+                    android:translationY="300dp"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/seekBarBack"
+                    android:progressDrawable="@drawable/seekbarprogress"
+                    android:maxHeight="2dp"
+                    android:max="200"
+                    android:rotation="90"/>
+            </LinearLayout>
+            <LinearLayout
+                android:orientation="vertical"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="fill_parent">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?android:attr/textAppearanceMedium"
+                    android:text="@string/seek_bottom"
+                    android:id="@+id/textViewBottom" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceMedium"
-            android:text="@string/seek_bottom"
-            android:id="@+id/textViewBottom" />
-
-        <SeekBar
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:id="@+id/seekBarBottom"
-            android:progressDrawable="@drawable/seekbarprogress"
-            android:maxHeight="2dp"
-            android:max="200"/>
-
+                <SeekBar
+                    android:layout_width="300dp"
+                    android:transformPivotX="300dp"
+                    android:translationX="-225dp"
+                    android:translationY="300dp"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/seekBarBottom"
+                    android:progressDrawable="@drawable/seekbarprogress"
+                    android:maxHeight="2dp"
+                    android:max="200"
+                    android:rotation="90" />
+            </LinearLayout>
+        </LinearLayout>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

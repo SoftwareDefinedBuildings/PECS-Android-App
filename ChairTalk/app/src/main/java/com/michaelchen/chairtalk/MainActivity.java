@@ -379,11 +379,9 @@ public class MainActivity extends ActionBarActivity {
     }
     protected void initSeekbarListeners() {
         seekBack = (SeekBar) findViewById(R.id.seekBarBack);
-        seekBack.setBackgroundDrawable(null);
         seekBack.setOnSeekBarChangeListener(new ChairSeekbarListener(BACK_HEAT, BACK_FAN));
 
         seekBottom = (SeekBar) findViewById(R.id.seekBarBottom);
-        seekBottom.setBackgroundDrawable(null);
         seekBottom.setOnSeekBarChangeListener(new ChairSeekbarListener(BOTTOM_HEAT, BOTTOM_FAN));
     }
 
