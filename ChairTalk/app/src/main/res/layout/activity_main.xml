@@ -102,7 +102,7 @@
             android:orientation="horizontal"
             android:layout_width="fill_parent"
             android:layout_height="fill_parent">
-            <LinearLayout
+            <RelativeLayout
                 android:orientation="vertical"
                 android:layout_width="0dp"
                 android:layout_weight="1"
@@ -110,24 +110,25 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_centerHorizontal="true"
                     android:textAppearance="?android:attr/textAppearanceMedium"
                     android:text="@string/seek_back"
                     android:id="@+id/textViewBack" />
-
-                <!-- translationX = -300dp + half of width of this LinearLayout -->
                 <SeekBar
                     android:layout_width="300dp"
-                    android:transformPivotX="300dp"
-                    android:translationX="-225dp"
-                    android:translationY="300dp"
+                    android:layout_marginLeft="-100dp"
+                    android:layout_marginRight="-100dp"
+                    android:translationY="150dp"
+                    android:layout_centerHorizontal="true"
+                    android:layout_below="@+id/textViewBack"
                     android:layout_height="wrap_content"
                     android:id="@+id/seekBarBack"
                     android:progressDrawable="@drawable/seekbarprogress"
                     android:maxHeight="2dp"
                     android:max="200"
                     android:rotation="90"/>
-            </LinearLayout>
-            <LinearLayout
+            </RelativeLayout>
+            <RelativeLayout
                 android:orientation="vertical"
                 android:layout_width="0dp"
                 android:layout_weight="1"
@@ -135,22 +136,24 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_centerHorizontal="true"
                     android:textAppearance="?android:attr/textAppearanceMedium"
                     android:text="@string/seek_bottom"
                     android:id="@+id/textViewBottom" />
-
                 <SeekBar
                     android:layout_width="300dp"
-                    android:transformPivotX="300dp"
-                    android:translationX="-225dp"
-                    android:translationY="300dp"
+                    android:layout_marginLeft="-100dp"
+                    android:layout_marginRight="-100dp"
+                    android:layout_centerHorizontal="true"
+                    android:layout_below="@+id/textViewBottom"
                     android:layout_height="wrap_content"
+                    android:translationY="150dp"
                     android:id="@+id/seekBarBottom"
                     android:progressDrawable="@drawable/seekbarprogress"
                     android:maxHeight="2dp"
                     android:max="200"
-                    android:rotation="90" />
-            </LinearLayout>
+                    android:rotation="90"/>
+            </RelativeLayout>
         </LinearLayout>
         <TextView
             android:layout_width="wrap_content"
