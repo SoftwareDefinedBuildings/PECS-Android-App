@@ -16,6 +16,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -377,12 +378,33 @@ public class MainActivity extends ActionBarActivity {
             sendUpdateLocal();
         }
     }
+
+    class ChairOffListener implements Button.OnClickListener {
+        private String heater, fan;
+        public ChairOffListener(String heater, String fan) {
+            this.heater = heater;
+            this.fan = fan;
+        }
+        public void onClick(View button) {
+            MainActivity.this.updatePref(this.fan, 0);
+            MainActivity.this.updatePref(this.heater, 0);
+            MainActivity.this.setSeekbarPositions();
+            sendUpdateLocal();
+        }
+    }
+
     protected void initSeekbarListeners() {
         seekBack = (SeekBar) findViewById(R.id.seekBarBack);
         seekBack.setOnSeekBarChangeListener(new ChairSeekbarListener(BACK_HEAT, BACK_FAN));
 
         seekBottom = (SeekBar) findViewById(R.id.seekBarBottom);
         seekBottom.setOnSeekBarChangeListener(new ChairSeekbarListener(BOTTOM_HEAT, BOTTOM_FAN));
+
+        Button backOff = (Button) findViewById(R.id.backOff);
+        backOff.setOnClickListener(new ChairOffListener(BACK_HEAT, BACK_FAN));
+
+        Button bottomOff = (Button) findViewById(R.id.bottomOff);
+        bottomOff.setOnClickListener(new ChairOffListener(BOTTOM_HEAT, BOTTOM_FAN));
     }
 
     /*private void repairBL() {
