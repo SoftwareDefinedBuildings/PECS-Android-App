@@ -71,7 +71,7 @@ public class MainActivity extends ActionBarActivity {
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
     public static final int refreshPeriod = 15000;
     public static final int syncRefreshPeriod = 60000;
-    public static final int DISCONNECTED_BL_PERIOD = 7100;
+    public static final int DISCONNECTED_BL_PERIOD = 5100;
     public static final int CONNECTED_BL_PERIOD = 12000;
     public static int blCheckPeriod = DISCONNECTED_BL_PERIOD;
     public static int prevBLCheckPeriod = 0; // something different so it fires the first time
