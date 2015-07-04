@@ -9,7 +9,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
-import android.os.PowerManager;
 import android.preference.PreferenceManager;
 import android.speech.RecognizerIntent;
 import android.support.v7.app.ActionBarActivity;
@@ -89,6 +88,8 @@ public class MainActivity extends ActionBarActivity {
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
     protected static final int REQUEST_OK = 1;
     protected static final int BLUETOOTH_REQUEST = 33;
+
+    public static int outstanding_requests = 0;
 
     private boolean waitingForBLOn = false;
 
@@ -264,8 +265,22 @@ public class MainActivity extends ActionBarActivity {
 
         } else if (bluetoothManager == null || !bluetoothManager.isConnected()) {
             initBle();
-            return;
         }
+
+
+        final Timer startupUpdater = new Timer();
+
+        TimerTask tt = new TimerTask() {
+            public void run() {
+                sendUpdateBle(true);
+                System.out.println("Sending update");
+                startupUpdater.cancel();
+                startupUpdater.purge();
+            }
+        };
+
+        startupUpdater.schedule(tt, 1500);
+
         //rescheduleTimer(0);
         //rescheduleSyncTimer(0);
         //rescheduleBLTimer(0);
@@ -611,6 +626,7 @@ public class MainActivity extends ActionBarActivity {
         // used to update everything if user changes value from app
         rescheduleTimer();
         sendUpdateBle(true);
+        outstanding_requests++;
         sendUpdateSmap(false);
         lastUpdate = new Date();
     }
@@ -799,16 +815,19 @@ public class MainActivity extends ActionBarActivity {
         private JSONObject jsonobj;
         private int bluetooth_ack;
         protected String uri_dest;
+        protected boolean request_handler;
         public HttpAsyncTask(JSONObject jsonobj) {
             super();
             this.uri_dest = uri;
             this.jsonobj = jsonobj;
             this.bluetooth_ack = -1; // sMAP update
+            this.request_handler = true;
         }
         public HttpAsyncTask(JSONObject jsonobj, int bluetooth_ack) {
             this(jsonobj);
             this.bluetooth_ack = bluetooth_ack; // Historical data update
             System.out.println("Sending historical point!");
+            this.request_handler = false;
         }
         protected String makeRequest() throws IOException {
             System.out.println("Sending request to " + this.uri_dest);
@@ -877,6 +896,13 @@ public class MainActivity extends ActionBarActivity {
                     }
                 });
                 return false;
+            } finally {
+                if (this.request_handler) {
+                    outstanding_requests--;
+                    if (outstanding_requests < 0) {
+                        outstanding_requests = 0;
+                    }
+                }
             }
         }
         // onPostExecute displays the results of the AsyncTask.
@@ -887,6 +913,7 @@ public class MainActivity extends ActionBarActivity {
     private class TimeSynchronizerAsyncTask extends HttpAsyncTask {
         public TimeSynchronizerAsyncTask() {
             super(new JSONObject());
+            this.request_handler = false;
         }
 
         @Override

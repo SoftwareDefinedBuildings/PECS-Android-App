@@ -53,6 +53,10 @@ public class UpdateTask extends QueryTask {
 
     @Override
     protected boolean processJsonObject(JSONObject jsonResponse) {
+        if (MainActivity.outstanding_requests != 0) {
+            System.out.println("Skipping update since change was just made.");
+            return true;
+        }
         boolean ret = false;
         int currentTime = 0;
         double prevUpdateTime = Double.longBitsToDouble(context.getSharedPreferences(context.getString(
