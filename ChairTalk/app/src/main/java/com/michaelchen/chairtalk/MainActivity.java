@@ -2,9 +2,11 @@ package com.michaelchen.chairtalk;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.PowerManager;
@@ -88,7 +90,7 @@ public class MainActivity extends ActionBarActivity {
     protected static final int REQUEST_OK = 1;
     protected static final int BLUETOOTH_REQUEST = 33;
 
-    public static final long smapUpdateTime = AlarmManager.INTERVAL_HALF_HOUR;
+    private boolean waitingForBLOn = false;
 
     public static boolean inMainApp = false;
 
@@ -105,7 +107,30 @@ public class MainActivity extends ActionBarActivity {
     static final Map<String, String> keyToUuid;
     static final Map<String, String> jsonToKey;
 
-    static PowerManager.WakeLock wl;
+    /*
+    I got some of this code from here: http://stackoverflow.com/questions/9693755/detecting-state-changes-made-to-the-bluetoothadapter
+     */
+    private final BroadcastReceiver bluetoothChangeReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+
+            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
+                switch (state) {
+                    case BluetoothAdapter.STATE_OFF:
+                        BluetoothAdapter.getDefaultAdapter().enable();
+                        break;
+                    case BluetoothAdapter.STATE_ON:
+                        if (MainActivity.this.waitingForBLOn) {
+                            MainActivity.this.waitingForBLOn = false;
+                            MainActivity.this.findChair();
+                        }
+                        break;
+                }
+            }
+        }
+    };
 
     /*  Definitely not the best way of doing things, but it lets any BluetoothActivity
         find the current MainActivity so it can clear the Node ID when needed.
@@ -204,11 +229,8 @@ public class MainActivity extends ActionBarActivity {
 
         MainActivity.currActivity = this;
 
-        /*if (wl == null) {
-            PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-            wl = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "KeepAliveBL");
-        }
-        wl.acquire();*/
+        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        registerReceiver(bluetoothChangeReceiver, filter);
     }
 
     private void initBle() {
@@ -548,8 +570,21 @@ public class MainActivity extends ActionBarActivity {
                     strikes = 0;
                 } else if (++strikes == 3) {
                     strikes = 0;
+                    // Disconnect from the chair
                     currActivity.disconnect();
+                    // Restart bluetooth
+                    BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                    if (adapter.isEnabled()) {
+                        adapter.disable();
+                    } else {
+                        adapter.enable();
+                    }
+
+                    // Try to reconnect with the chair
+                    currActivity.waitingForBLOn = true;
+                    /* We used to use this code, but now the bluetoothChangeReceiver takes care of it
                     currActivity.findChair();
+                    */
                 }
             }
             blCheck = blExpect;
