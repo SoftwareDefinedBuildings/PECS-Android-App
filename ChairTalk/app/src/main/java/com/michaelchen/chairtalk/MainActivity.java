@@ -48,7 +48,8 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
-
+//import java.util.logging.Handler;
+import android.os.Handler;
 
 public class MainActivity extends ActionBarActivity {
 
@@ -107,6 +108,121 @@ public class MainActivity extends ActionBarActivity {
     static final Map<String, String> uuidToKey;
     static final Map<String, String> keyToUuid;
     static final Map<String, String> jsonToKey;
+
+    // polling actuation requests from sMAP
+    private int actuationPollDelay = 5000; // 5 seconds
+    private double lastActuationTime = 0;
+    // actuations go to this timeseries. Expects readings that are arrays of [nodeid, backfan, bottomfan, backheat, bottomheat]
+    private String actuationUUID = "f7e14750-7054-3dfb-9a8b-5f9bf3c1bc89";
+    final Handler actuationHandler = new Handler();
+    Timer actuationPollTimer = new Timer();
+    TimerTask actuationPollTask = new TimerTask() {
+        @Override
+        public void run() {
+            new AsyncGetActuation().execute();
+        }
+    };
+
+    private class AsyncGetActuation extends AsyncTask<String, Void, String> {
+        protected String doInBackground(String... args) {
+            System.out.println("Sending request to " + QUERY_STRING);
+            DefaultHttpClient httpclient = new DefaultHttpClient();
+            HttpPost httpPostReq = new HttpPost(QUERY_STRING);
+            StringEntity se = null;
+            HttpResponse httpResponse = null;
+            InputStream inputStream = null;
+            try {
+                se = new StringEntity("select data before now where uuid = '"+actuationUUID+"';");
+                httpPostReq.setEntity(se);
+                httpPostReq.setHeader("Accept", "application/json");
+                httpPostReq.setHeader("Content-type", "application/json");
+                httpResponse = httpclient.execute(httpPostReq);
+                inputStream = httpResponse.getEntity().getContent();
+                return MainActivity.inputStreamToString(inputStream);
+            } catch (Exception e) {
+                Log.e("httpPost", String.valueOf(e));
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getBaseContext(), "Pulling actuation request from sMAP failed", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+            return null;
+        }
+
+        protected void onPostExecute(String result) {
+            try {
+                SharedPreferences sharedPref = MainActivity.this.getSharedPreferences(
+                        getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
+                JSONArray actuation = new JSONArray(result);
+                JSONArray readings = actuation.getJSONObject(0).getJSONArray("Readings").getJSONArray(0);
+                double timestamp = readings.getDouble(0) / 1000;
+                JSONArray actuationRequest = readings.getJSONArray(1);
+                String chairID = actuationRequest.getString(0);
+                int backfan = actuationRequest.getInt(1);
+                int bottomfan = actuationRequest.getInt(2);
+                int backheat = actuationRequest.getInt(3);
+                int bottomheat = actuationRequest.getInt(4);
+                String uuid = actuation.getJSONObject(0).getString("uuid");
+                System.out.println("GOT QUERY RESULTS" + result);
+                System.out.println("timestamp " + String.valueOf(timestamp));
+                System.out.println("actuationrequest " + actuationRequest.toString());
+                System.out.println("uuid " +  uuid);
+                double currenttime = System.currentTimeMillis() / 1000.0;
+                System.out.println("current time" + String.valueOf(currenttime) + " act time " + String.valueOf(timestamp) +" diff " + String.valueOf(currenttime - timestamp));
+
+                String mychair = sharedPref.getString(WF_KEY, "");
+                if (!mychair.equalsIgnoreCase(chairID)) {
+                    Log.d("actuation", "Actuation request for different chair. For " + chairID + ", I am " + mychair);
+                    return;
+                }
+                if (currenttime > (timestamp+5)) {
+                    Log.d("actuation", "Actuation request too old");
+                    return;
+                }
+                if (lastActuationTime == timestamp) {
+                    Log.d("actuation", "Already performed this actuation");
+                }
+                lastActuationTime = timestamp;
+                if (backfan != -1) {
+                    if (backfan < 0) { backfan = 0; }
+                    if (backfan > 100) {backfan = 100; }
+                    MainActivity.this.updatePref(BACK_FAN, backfan);
+                }
+                if (bottomfan != -1) {
+                    if (bottomfan < 0) { bottomfan = 0; }
+                    if (bottomfan > 100) {bottomfan = 100; }
+                    MainActivity.this.updatePref(BOTTOM_FAN, bottomfan);
+                }
+                if (backheat != -1) {
+                    if (backheat < 0) { backheat = 0; }
+                    if (backheat > 100) {backheat = 100; }
+                    MainActivity.this.updatePref(BACK_HEAT, backheat);
+                }
+                if (bottomheat != -1 ) {
+                    if (bottomheat < 0) { bottomheat = 0; }
+                    if (bottomheat > 100) {bottomheat = 100; }
+                    MainActivity.this.updatePref(BOTTOM_HEAT, bottomheat);
+                }
+                sendUpdateLocal();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        MainActivity.this.setSeekbarPositions();
+                    }
+                });
+            } catch (Exception e) {
+                Log.e("smapActuation", "Handling actuation request failed", e);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getBaseContext(), "Using actuation request from sMAP failed", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        }
+    }
 
     /*
     I got some of this code from here: http://stackoverflow.com/questions/9693755/detecting-state-changes-made-to-the-bluetoothadapter
@@ -237,6 +353,8 @@ public class MainActivity extends ActionBarActivity {
 
         IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
         registerReceiver(bluetoothChangeReceiver, filter);
+
+        actuationPollTimer.schedule(actuationPollTask, actuationPollDelay, actuationPollDelay);
     }
 
     private void initBle() {
