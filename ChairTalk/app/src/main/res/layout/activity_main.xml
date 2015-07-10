@@ -101,12 +101,12 @@
         <LinearLayout
             android:orientation="horizontal"
             android:layout_width="fill_parent"
-            android:layout_height="fill_parent">
+            android:layout_height="wrap_content">
             <RelativeLayout
                 android:orientation="vertical"
                 android:layout_width="0dp"
                 android:layout_weight="1"
-                android:layout_height="fill_parent">
+                android:layout_height="420dp">
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -171,6 +171,12 @@
                     android:translationY="290dp"/>
             </RelativeLayout>
         </LinearLayout>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="1000dp"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="Status: Initiated bluetooth connection. Waiting for chair..."
+            android:id="@+id/status" />
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

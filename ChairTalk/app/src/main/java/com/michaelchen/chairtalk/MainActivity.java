@@ -179,10 +179,15 @@ public class MainActivity extends ActionBarActivity {
 
     private void setVerifiedConnection(boolean connected) {
         if (connected ^ verifiedConnection) {
+            TextView t = (TextView) findViewById(R.id.status);
             if (connected) {
                 blCheckPeriod = CONNECTED_BL_PERIOD;
+                t.setText("Status: Connected to chair.");
             } else {
                 blCheckPeriod = DISCONNECTED_BL_PERIOD;
+                if (!manuallyDisconnected) {
+                    t.setText("Status: Chair is not responding to bluetooth...");
+                }
             }
             rescheduleBLTimer(blCheckPeriod + 500);
         }
@@ -244,7 +249,14 @@ public class MainActivity extends ActionBarActivity {
             }
             TextView t = (TextView) findViewById(R.id.chair_desc);
             t.setText(getString(R.string.chair_desc) + mDeviceAddress);
+
+            t = (TextView) currActivity.findViewById(R.id.status);
             setVerifiedConnection(true);
+            if (manuallyDisconnected) {
+                t.setText("Status: Manually disconnected from chair.");
+            } else {
+                t.setText("Status: Initiated bluetooth connection. Waiting for chair...");
+            }
         } else {
             SharedPreferences sharedPreferences = getSharedPreferences(getString(R.string.temp_preference_file_key), Context.MODE_PRIVATE);
             String mac = sharedPreferences.getString(BluetoothManager.MAC_KEY, "");
@@ -589,6 +601,8 @@ public class MainActivity extends ActionBarActivity {
                     currActivity.disconnect();
                     // Restart bluetooth
                     BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                    TextView t = (TextView) currActivity.findViewById(R.id.status);
+                    t.setText("Status: Restarting bluetooth and attempting to reconnect...");
                     if (adapter.isEnabled()) {
                         adapter.disable();
                     } else {
@@ -1132,6 +1146,8 @@ public class MainActivity extends ActionBarActivity {
                 return true;
             case R.id.action_disconnect:
                 manuallyDisconnected = true;
+                TextView t = (TextView) findViewById(R.id.status);
+                t.setText("Status: Manually disconnected from chair.");
                 disconnect();
                 return true;
             case R.id.action_newchair:
