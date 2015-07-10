@@ -1107,9 +1107,11 @@ public class MainActivity extends ActionBarActivity {
         getMenuInflater().inflate(R.menu.menu_main, menu);
         if (bluetoothManager == null) {
             menu.findItem(R.id.action_disconnect).setVisible(false);
+            menu.findItem(R.id.action_reconnect).setVisible(false);
             menu.findItem(R.id.action_bluetooth).setVisible(true);
         } else {
             menu.findItem(R.id.action_disconnect).setVisible(true);
+            menu.findItem(R.id.action_reconnect).setVisible(true);
             menu.findItem(R.id.action_bluetooth).setVisible(false);
         }
         return true;
@@ -1141,14 +1143,17 @@ public class MainActivity extends ActionBarActivity {
         switch(id) {
             case R.id.action_settings:
                 return true;
-            case R.id.action_bluetooth:
-                findChair();
-                return true;
             case R.id.action_disconnect:
+            case R.id.action_reconnect:
                 manuallyDisconnected = true;
                 TextView t = (TextView) findViewById(R.id.status);
                 t.setText("Status: Manually disconnected from chair.");
                 disconnect();
+                if (id == R.id.action_disconnect) {
+                    return true;
+                }
+            case R.id.action_bluetooth:
+                findChair();
                 return true;
             case R.id.action_newchair:
                 disconnect();

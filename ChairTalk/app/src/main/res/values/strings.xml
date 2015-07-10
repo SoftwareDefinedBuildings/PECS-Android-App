@@ -24,8 +24,10 @@
     <string name="title_activity_bluetooth">BluetoothActivity</string>
     <string name="title_devices">Select Chair</string>
     <string name="unknown_device">Unknown Device</string>
-    <string name="action_bluetooth">Find Chair</string>
+    <string name="action_bluetooth">Find My Chair</string>
     <string name="action_disconnect">Disconnect</string>
+    <string name="action_reconnect">Reconnect to My Chair</string>
+    <string name="action_newchair">Connect to New Chair</string>
     <string name="title_activity_device_control">DeviceControlActivity</string>
 
     <string name="connected">Connected</string>
