@@ -294,7 +294,7 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private void setVerifiedConnection(boolean connected) {
-        if (connected ^ verifiedConnection) {
+        if (connected && verifiedConnection) {
             TextView t = (TextView) findViewById(R.id.status);
             if (connected) {
                 blCheckPeriod = CONNECTED_BL_PERIOD;
