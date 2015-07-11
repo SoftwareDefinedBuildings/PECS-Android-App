@@ -294,19 +294,17 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private void setVerifiedConnection(boolean connected) {
-        if (connected && verifiedConnection) {
-            TextView t = (TextView) findViewById(R.id.status);
-            if (connected) {
-                blCheckPeriod = CONNECTED_BL_PERIOD;
-                t.setText("Status: Connected to chair.");
-            } else {
-                blCheckPeriod = DISCONNECTED_BL_PERIOD;
-                if (!manuallyDisconnected) {
-                    t.setText("Status: Chair is not responding to bluetooth...");
-                }
+        TextView t = (TextView) findViewById(R.id.status);
+        if (connected) {
+            blCheckPeriod = CONNECTED_BL_PERIOD;
+            t.setText("Status: Connected to chair.");
+        } else {
+            blCheckPeriod = DISCONNECTED_BL_PERIOD;
+            if (!manuallyDisconnected) {
+                t.setText("Status: Chair is not responding to bluetooth...");
             }
-            rescheduleBLTimer(blCheckPeriod + 500);
         }
+        rescheduleBLTimer(blCheckPeriod + 500);
         verifiedConnection = connected;
     }
 
