@@ -138,6 +138,7 @@ public class BluetoothActivity extends ListActivity{
     @Override
     public void onBackPressed() {
         super.onBackPressed();
+        scanLeDevice(false);
         MainActivity.inMainApp = true;
         Intent i = new Intent(this, MainActivity.class);
         i.putExtra(MainActivity.SKIP_BL, true);
@@ -204,7 +205,7 @@ public class BluetoothActivity extends ListActivity{
     }
     private void scanLeDevice(final boolean enable) {
         if (enable) {
-            // Stops scanning after a pre-defined scan period.
+            /*// Stops scanning after a pre-defined scan period.
             mHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
@@ -212,7 +213,7 @@ public class BluetoothActivity extends ListActivity{
                     mBluetoothAdapter.stopLeScan(mLeScanCallback);
                     invalidateOptionsMenu();
                 }
-            }, SCAN_PERIOD);
+            }, SCAN_PERIOD);*/
             mScanning = true;
             mBluetoothAdapter.startLeScan(mLeScanCallback);
         } else {
