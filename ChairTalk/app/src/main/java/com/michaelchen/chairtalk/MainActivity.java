@@ -73,13 +73,11 @@ public class MainActivity extends ActionBarActivity {
     private static final String QUERY_STRING = "http://shell.storm.pm:8079/api/query";
     public static final int refreshPeriod = 15000;
     public static final int syncRefreshPeriod = 60000;
-    public static final int DISCONNECTED_BL_PERIOD = 5100;
-    public static final int CONNECTED_BL_PERIOD = 12000;
+    public static final int DISCONNECTED_BL_PERIOD = 2700; // will be ignored unless five seconds have passed
+    public static final int CONNECTED_BL_PERIOD = 11100;
     public static int blCheckPeriod = DISCONNECTED_BL_PERIOD;
     public static int prevBLCheckPeriod = 0; // something different so it fires the first time
     //public static final int smapDelay = 20000;
-    private static int blCheck = 1;
-    private static int blExpect = 0;
     private static BluetoothManager bluetoothManager = null;
     private Date lastUpdate; //TODO: check to make sure smap loop never happens
     public static boolean verifiedConnection = true;
@@ -304,8 +302,10 @@ public class MainActivity extends ActionBarActivity {
                 t.setText("Status: Chair is not responding to bluetooth...");
             }
         }
-        rescheduleBLTimer(blCheckPeriod + 500);
-        verifiedConnection = connected;
+        if (verifiedConnection != connected) {
+            rescheduleBLTimer(blCheckPeriod);
+            verifiedConnection = connected;
+        }
     }
 
     public double get_time() {
@@ -345,7 +345,6 @@ public class MainActivity extends ActionBarActivity {
             setRecurringSyncAlarm(syncRefreshPeriod, 0);
             setSyncAlarm = true;
         }
-        rescheduleBLTimer(0);
 
         MainActivity.currActivity = this;
 
@@ -367,7 +366,9 @@ public class MainActivity extends ActionBarActivity {
             t.setText(getString(R.string.chair_desc) + mDeviceAddress);
 
             t = (TextView) currActivity.findViewById(R.id.status);
-            setVerifiedConnection(true);
+            setVerifiedConnection(false); // I'm setting it to false because the connection isn't yet verified
+            rescheduleBLTimer(blCheckPeriod); // so we don't lose time waiting to reconnect
+            last_checked = System.currentTimeMillis();
             if (manuallyDisconnected) {
                 t.setText("Status: Manually disconnected from chair.");
             } else {
@@ -697,51 +698,47 @@ public class MainActivity extends ActionBarActivity {
     }
 
     static int strikes = 0;
+    static long last_checked = 0;
     public static class BLCheckReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             System.out.println("RECEIVED INTENT");
-            if (!inMainApp || currActivity == null) {
+            if (!inMainApp || currActivity == null || currActivity.waitingForBLOn) {
                 return;
             }
-            currActivity.setVerifiedConnection(blCheck != blExpect);
-            System.out.println("Setting verified connection " + blCheck + " " + blExpect);
-            if (verifiedConnection) {
-                strikes = 0;
-            } else {
-                if (manuallyDisconnected) {
-                    strikes = 0;
-                } else if (++strikes == 3) {
-                    strikes = 0;
-                    // Disconnect from the chair
-                    currActivity.disconnect();
-                    // Restart bluetooth
-                    BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-                    TextView t = (TextView) currActivity.findViewById(R.id.status);
-                    t.setText("Status: Restarting bluetooth and attempting to reconnect...");
-                    if (adapter.isEnabled()) {
-                        adapter.disable();
-                    } else {
-                        adapter.enable();
-                    }
-
-                    // Try to reconnect with the chair
-                    currActivity.waitingForBLOn = true;
-                    /* We used to use this code, but now the bluetoothChangeReceiver takes care of it
-                    currActivity.findChair();
-                    */
+            long curr_time = System.currentTimeMillis();
+            if (curr_time - last_checked < 5000) {
+                if (last_checked > curr_time) {
+                    last_checked = curr_time; // in case the clock was changed or something
                 }
+                return; // if it hasn't even been 5 seconds since we last checked, then just keep waiting.
             }
-            blCheck = blExpect;
+            last_checked = curr_time;
+            boolean heard_recently = curr_time - MainActivity.last_heard < 5000;
+            currActivity.setVerifiedConnection(heard_recently);
+            System.out.println("Setting verified connection " + curr_time + " " + MainActivity.last_heard);
+            if (verifiedConnection || manuallyDisconnected) {
+                strikes = 0;
+            } else if (++strikes == 2) {
+                strikes = 0;
+                // Disconnect from the chair
+                currActivity.disconnect();
+                // Restart bluetooth
+                BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                TextView t = (TextView) currActivity.findViewById(R.id.status);
+                t.setText("Status: Restarting bluetooth and attempting to reconnect...");
+                if (adapter.isEnabled()) {
+                    adapter.disable();
+                } else {
+                    adapter.enable();
+                }
 
-            byte[] bytes = new byte[5];
-            bytes[0] = (byte) (blCheck >>> 24);
-            bytes[1] = (byte) ((blCheck >>> 16) & 0xFF);
-            bytes[2] = (byte) ((blCheck >>> 8) & 0xFF);
-            bytes[3] = (byte) ((blCheck & 0xFF));
-            bytes[4] = 3;
-            System.out.println("SENDING BLUETOOTH CHECK");
-            currActivity.writeBleByteArray(bytes);
+                // Try to reconnect with the chair
+                currActivity.waitingForBLOn = true;
+                /* We used to use this code, but now the bluetoothChangeReceiver takes care of it
+                currActivity.findChair();
+                */
+            }
         }
     }
 
@@ -776,7 +773,7 @@ public class MainActivity extends ActionBarActivity {
         long seconds = (currentTime.getTime()-lastUpdate.getTime());
         return seconds > smapDelay;
     }*/
-
+    private static long last_heard = 0;
     void setBleStatus(byte[] status) {
         System.out.println("Got message of length " + status.length);
         System.out.print("Got ");
@@ -786,30 +783,19 @@ public class MainActivity extends ActionBarActivity {
         }
         System.out.println();
 
-        if (status.length < 5) {
+        if (status.length < 4) {
             return;
         }
 
-        if (status.length == 5) {
-            if (status[4] == 3) {
-                int receivedEcho = (unsignedByteToInt(status[0]) << 24)
-                        + (unsignedByteToInt(status[1]) << 16)
-                        + (unsignedByteToInt(status[2]) << 8)
-                        + unsignedByteToInt(status[3]);
-                if (receivedEcho == blExpect) {
-                    System.out.println("Got expected acknowledgement");
-                    setVerifiedConnection(true);
-                    // We got the acknowledgement we were looking for
-                    blExpect++;
-                }
-            }
-            return;
-        }
-
-        if (status.length == 11 || status.length == 19) {
+        if (status.length == 4 || status.length == 11 || status.length == 19) {
             // Valid protocol, assume it's coming from a chair
+            // Length 4 means it's a chair-initiated beacon to acknowledge its presence.
             setVerifiedConnection(true);
-            blExpect = blCheck + 1;
+            last_heard = System.currentTimeMillis();
+            if (status.length == 4) {
+                writeBleByteArray(new byte[] {-128, -128, -128, -128, 3});
+                return;
+            }
         } else {
             return; // invalid protocol, may crash app if I parse this
         }
@@ -883,13 +869,13 @@ public class MainActivity extends ActionBarActivity {
 
 
     public void sendUpdateBle(boolean notifyUser) {
-        if (notifyUser && !verifiedConnection) {
+        /*if (notifyUser && !verifiedConnection) {
             if (manuallyDisconnected) {
                 Toast.makeText(currActivity.getApplicationContext(), getString(R.string.no_bl_manual), Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(currActivity.getApplicationContext(), getString(R.string.no_bl), Toast.LENGTH_SHORT).show();
             }
-        }
+        }*/ // User already knows bl status, so no need to notify
         boolean result = writeBleByteArray(getByteStatus());
         if (!result) {
             System.err.println("Bluetooth update appears to fail.");
